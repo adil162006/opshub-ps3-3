@@ -67,8 +67,6 @@ function Shell({ admin, children }) {
             <>
               {L('/builder', 'Builder')}
               {L('/users', 'Users')}
-              {L('/tests', 'Tests')}
-              {L('/settings', 'Backup')}
             </>
           )}
         </nav>

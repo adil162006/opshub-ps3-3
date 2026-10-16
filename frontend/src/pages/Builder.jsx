@@ -5,7 +5,7 @@ import 'reactflow/dist/style.css';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
 import { useAuth } from '../context/Authcontext';
-import { MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
+import { DEFAULT_THEME, MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
 import { Badge, toast, when } from '../ui';
 
 const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
@@ -16,16 +16,22 @@ function builderSiteFromResponse(data) {
     v: version.version,
     nodes: version.config.nodes || [],
     edges: version.config.edges || [],
-    theme: version.config.theme || {},
+    theme: { ...DEFAULT_THEME, ...version.config.theme },
     note: version.note,
     by: version.createdBy || 'Unknown',
     at: version.createdAt,
   }));
   const versionById = new Map(versions.map((version) => [version.id, version.v]));
+  const draft = data.draft || data.config || {};
   return {
     ...data.site,
     live: versionById.get(data.site.live) ?? null,
-    draft: data.draft || data.config || { nodes: [], edges: [], theme: {} },
+    draft: {
+      ...draft,
+      nodes: draft.nodes || [],
+      edges: draft.edges || [],
+      theme: { ...DEFAULT_THEME, ...draft.theme },
+    },
     versions,
     deploys: (data.deploys || []).map((deploy) => ({
       ...deploy,
