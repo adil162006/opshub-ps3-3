@@ -24,15 +24,12 @@ const port = Number(process.env.PORT) || 3000;
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',').map((origin) => origin.trim()).filter(Boolean);
 
-const isLocalOrigin = (origin) => /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
   credentials: true,
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || isLocalOrigin(origin)) return callback(null, true);
-    console.warn(`[CORS] Rejected origin: "${origin}"`);
-    return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origin is not allowed by CORS'));
   },
 }));
 app.use(cookieParser());
