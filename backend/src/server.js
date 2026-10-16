@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import usersRoutes from './modules/users/users.routes.js';
+import reportsRoutes from './modules/reports/reports.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
@@ -23,6 +24,7 @@ app.use(express.json());
 app.use('/api', analyticsRoutes);
 app.use('/api', authRoutes);
 app.use('/api', usersRoutes);
+app.use('/api', reportsRoutes);
 app.use('/api', inventoryRoutes);
 
 app.get('/health', (_req, res) => {
