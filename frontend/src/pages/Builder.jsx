@@ -4,6 +4,7 @@ import ReactFlow, { Background, Controls, Handle, MiniMap, Position, ReactFlowPr
 import 'reactflow/dist/style.css';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
+import { useAuth } from '../context/Authcontext';
 import { MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
 import { Badge, toast, when } from '../ui';
 
@@ -285,10 +286,13 @@ export function BuilderEditor() {
 export function BuilderIndex() {
   const queryClient = useQueryClient();
   const nav = useNavigate();
+  const { user } = useAuth();
+  const isGlobalAdmin = user?.role === 'Admin';
   const { data: sites = [], isLoading, error } = useQuery({
     queryKey: SITES_QUERY_KEY,
     queryFn: getSites,
   });
+  const manageableSites = sites.filter((site) => isGlobalAdmin || site.role === 'Admin');
   const [createError, setCreateError] = useState('');
   const createMutation = useMutation({
     mutationFn: createSite,
@@ -310,8 +314,9 @@ export function BuilderIndex() {
         <h1 className="text-xl font-semibold">Site builder</h1>
         {isLoading && <p className="muted">Loading sites…</p>}
         {error && <p role="alert" className="text-sm text-red-400">{errorMessage(error)}</p>}
-        {!isLoading && !error && <div className="grid md:grid-cols-3 gap-3">{sites.map((site) => <Link key={site.id} to={`/builder/${site.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{site.name}</div><div className="text-xs muted">/{site.slug} · live v{site.live ?? '—'} · {(site.moduleTypes || []).length} modules · {site.role}</div></Link>)}</div>}
-        <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(event) => {
+        {!isLoading && !error && manageableSites.length > 0 && <div className="grid md:grid-cols-3 gap-3">{manageableSites.map((site) => <Link key={site.id} to={`/builder/${site.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{site.name}</div><div className="text-xs muted">/{site.slug} · live v{site.live ?? '—'} · {(site.moduleTypes || []).length} published modules · {site.role}</div></Link>)}</div>}
+        {!isLoading && !error && !manageableSites.length && <p className="muted">You do not have Admin access to any sites to configure.</p>}
+        {isGlobalAdmin && <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(event) => {
           event.preventDefault();
           setCreateError('');
           createMutation.mutate(f);
@@ -321,7 +326,7 @@ export function BuilderIndex() {
           <div><label className="lbl">Start from</label><select className="input" value={f.preset} onChange={(event) => setF({ ...f, preset: event.target.value })}>{Object.keys(PRESETS).map((preset) => <option key={preset}>{preset}</option>)}</select></div>
           <div className="flex items-end"><button className="btn btn-primary" disabled={createMutation.isPending || isLoading || !!error}>{createMutation.isPending ? 'Creating…' : 'Create site'}</button></div>
           {createError && <p role="alert" className="text-sm text-red-400 sm:col-span-4">{createError}</p>}
-        </form>
+        </form>}
       </div>
     </div>);
 }

@@ -9,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
-function validateDraft(config) {
+function validateDraft(config, { allowIncomplete = false } = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config) || !Array.isArray(config.nodes) || !Array.isArray(config.edges)) {
     throw new ApiError(422, 'Draft must contain nodes and edges arrays');
   }
@@ -44,7 +44,7 @@ function validateDraft(config) {
     }
   }
   const result = validateConfig(config);
-  if (result.errors.length) throw new ApiError(422, 'Site configuration is invalid', result.errors);
+  if (!allowIncomplete && result.errors.length) throw new ApiError(422, 'Site configuration is invalid', result.errors);
   const seenEdges = new Set();
   const ids = new Set(config.nodes.map((node) => node?.id));
   for (const edge of config.edges) {
@@ -148,7 +148,7 @@ export async function createSite(actorId, input) {
 
 export async function saveDraft(siteId, actorId, config) {
   await requireSiteAdmin(siteId, actorId);
-  validateDraft(config);
+  validateDraft(config, { allowIncomplete: true });
   const [saved] = await db.update(sites).set({ draft: clone(config), updatedAt: new Date() }).where(eq(sites.id, siteId)).returning({ id: sites.id });
   if (!saved) throw new ApiError(404, 'Site not found');
   return { saved: true };
