@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { siteMembers, siteVersions, sites, users } from '../../db/schema/index.js';
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 
 const roleRank = { Public: 0, Member: 1, Manager: 2, Admin: 3 };
 const moduleNames = {
