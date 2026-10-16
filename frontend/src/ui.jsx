@@ -23,14 +23,33 @@ export function Toaster() {
 }
 
 const TONES = {
-  pending: 'bg-amber-100 text-amber-800', approved: 'bg-green-100 text-green-800', rejected: 'bg-red-100 text-red-800', assigned: 'bg-blue-100 text-blue-800',
-  open: 'bg-slate-200 text-slate-700', 'in-repair': 'bg-purple-100 text-purple-800', closed: 'bg-slate-200 text-slate-700', issued: 'bg-sky-100 text-sky-800',
-  'in-use': 'bg-indigo-100 text-indigo-800', consumed: 'bg-slate-200 text-slate-700', diagnosis: 'bg-amber-100 text-amber-800', repairing: 'bg-purple-100 text-purple-800',
-  testing: 'bg-cyan-100 text-cyan-800', completed: 'bg-green-100 text-green-800', approve: 'bg-green-100 text-green-800', reject: 'bg-red-100 text-red-800',
-  good: 'bg-green-100 text-green-800', damaged: 'bg-red-100 text-red-800', High: 'bg-red-100 text-red-800', Normal: 'bg-slate-200 text-slate-700', Low: 'bg-slate-100 text-slate-600',
-  Admin: 'bg-rose-100 text-rose-800', Manager: 'bg-amber-100 text-amber-800', Member: 'bg-sky-100 text-sky-800',
+  pending:   'bg-amber-400/15 text-amber-300',
+  approved:  'bg-emerald-400/15 text-emerald-300',
+  rejected:  'bg-red-400/15 text-red-300',
+  assigned:  'bg-blue-400/15 text-blue-300',
+  open:      'bg-slate-400/15 text-slate-300',
+  'in-repair': 'bg-purple-400/15 text-purple-300',
+  closed:    'bg-slate-400/10 text-slate-400',
+  issued:    'bg-sky-400/15 text-sky-300',
+  'in-use':  'bg-indigo-400/15 text-indigo-300',
+  consumed:  'bg-slate-400/10 text-slate-400',
+  diagnosis: 'bg-amber-400/15 text-amber-300',
+  repairing: 'bg-purple-400/15 text-purple-300',
+  testing:   'bg-cyan-400/15 text-cyan-300',
+  completed: 'bg-emerald-400/15 text-emerald-300',
+  approve:   'bg-emerald-400/15 text-emerald-300',
+  reject:    'bg-red-400/15 text-red-300',
+  good:      'bg-emerald-400/15 text-emerald-300',
+  damaged:   'bg-red-400/15 text-red-300',
+  High:      'bg-red-400/15 text-red-300',
+  Normal:    'bg-slate-400/15 text-slate-300',
+  Low:       'bg-slate-400/10 text-slate-400',
+  Admin:     'bg-amber-400/20 text-amber-300',
+  Manager:   'bg-emerald-400/15 text-emerald-300',
+  Member:    'bg-sky-400/15 text-sky-300',
 };
-export const Badge = ({ v }) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${TONES[v] || 'bg-slate-100 text-slate-700'}`}>{v}</span>;
+export const Badge = ({ v }) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${TONES[v] || 'bg-slate-400/15 text-slate-300'}`}>{v}</span>;
+
 export const Page = ({ title, sub, actions, children }) => (
   <div className="p-6 max-w-6xl mx-auto space-y-4">
     <div className="flex items-start justify-between gap-3 flex-wrap"><div><h1 className="text-xl font-semibold">{title}</h1>{sub && <p className="text-sm muted">{sub}</p>}</div><div className="flex gap-2 flex-wrap">{actions}</div></div>
