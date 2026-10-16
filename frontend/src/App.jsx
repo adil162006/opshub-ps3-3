@@ -26,8 +26,7 @@ function Shell({ admin, children }) {
         <Link to="/" className="font-bold tracking-tight">◈ OpsHub</Link>
         <select aria-label="Switch site" className="text-sm rounded-md px-2 py-1 text-white" style={{ background: '#1b2542', border: '1px solid #2c3a63' }} value={cur} onChange={(e) => { const slug = e.currentTarget.value; if (slug && slug !== cur) nav(`/s/${slug}`); }}>
           <option value="">Switch site…</option>{sites.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}</select>
-        {/* <nav className="flex gap-1">{L('/', 'Hub')}{L('/catalogue', 'Catalogue')}{user.role === 'Admin' && <>{L('/builder', 'Builder')}{L('/users', 'Users')}{L('/tests', 'Tests')}{L('/settings', 'Backup')}</>}</nav> */}
-        <nav className="flex gap-1">{L('/', 'Hub')}</nav>
+        <nav className="flex gap-1">{L('/', 'Hub')}{L('/catalogue', 'Catalogue')}{user.role === 'Admin' && <>{L('/builder', 'Builder')}{L('/users', 'Users')}{L('/tests', 'Tests')}{L('/settings', 'Backup')}</>}</nav>
         <div className="ml-auto text-sm flex items-center gap-3"><span className="opacity-70">{user.name} · {user.role === 'Admin' ? 'Admin' : 'User'}</span><button className="px-2 py-1 rounded-md" style={{ background: '#1b2542' }} onClick={() => { setToken(null); nav('/login'); }}>Sign out</button></div>
       </header>
       {children}

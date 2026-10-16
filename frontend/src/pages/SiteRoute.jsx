@@ -12,11 +12,6 @@ import { AnalyticsView, ReportsView } from '../views/Insights';
 
 const VIEWS = { shell: Dashboard, auth: Access, users: Members, inventory: InventoryView, request: RequestView, approval: ApprovalView, assignment: AssignmentView, assignmentUi: AssignmentCards, consumption: ConsumptionView, returns: ReturnsView, repair: RepairView, analytics: AnalyticsView, reports: ReportsView };
 const FONTS = { Inter: 'Inter, system-ui, sans-serif', serif: 'Georgia, "Times New Roman", serif', mono: 'ui-monospace, SFMono-Regular, Menlo, monospace' };
-const SITE_NAV_MODULES = {
-  'central-stores': ['inventory', 'analytics'],
-  'service-centre': ['request', 'analytics'],
-  distribution: ['inventory', 'approval', 'analytics'],
-};
 
 export default function SiteRoute({ preview = false }) {
   const { slug, '*': sub } = useParams();
@@ -34,8 +29,7 @@ export default function SiteRoute({ preview = false }) {
   if (state.error) return <div className="themed p-10 text-center" style={{ minHeight: 'calc(100vh - 48px)', background: '#f6f7fb' }}><div className="text-5xl mb-2">🔒</div><h1 className="text-lg font-semibold">{state.error}</h1></div>;
   const { ctx } = state; const t = ctx.theme; const dark = t.mode === 'dark';
   const style = { '--primary': t.primary, '--accent': t.accent, '--radius': `${t.radius}px`, '--bg': dark ? '#0b1220' : '#f6f7fb', '--card': dark ? '#131c2e' : '#ffffff', '--fg': dark ? '#e5e7eb' : '#0f172a', '--muted': dark ? '#94a3b8' : '#64748b', '--border': dark ? '#243049' : '#e5e7eb', fontFamily: FONTS[t.font] || FONTS.Inter, minHeight: 'calc(100vh - 48px)' };
-  const allowedModules = SITE_NAV_MODULES[slug] || [];
-  const pages = pagesOf(ctx.config).filter((p) => allowedModules.includes(p.type));
+  const pages = pagesOf(ctx.config);
   if (!sub && pages.length) return <Navigate to={`${ctx.base}/${pages[0].path}`} replace />;
   const page = pages.find((p) => p.path === sub);
   const View = page ? VIEWS[page.type] : null;
