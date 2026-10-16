@@ -19,6 +19,7 @@ export const moduleKeyEnum = pgEnum('module_key', [
 ]);
 export const requestStatusEnum = pgEnum('request_status', [
   'pending',
+  'open',
   'approved',
   'rejected',
   'assigned',
