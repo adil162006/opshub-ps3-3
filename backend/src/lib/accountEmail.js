@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { AppError } from './AppError.js';
+import { ApiError as AppError } from './ApiError.js';
 
 function createTransport() {
   const host = process.env.SMTP_HOST;

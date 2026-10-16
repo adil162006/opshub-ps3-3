@@ -1,4 +1,4 @@
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 import { createExport, importInventory } from './reports.service.js';
 
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');

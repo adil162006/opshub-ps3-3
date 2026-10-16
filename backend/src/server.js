@@ -14,6 +14,7 @@ import repairsRoutes from './modules/repairs/repairs.routes.js';
 
 import requestsRoutes from './modules/requests/requests.routes.js';
 import approvalsRoutes from './modules/approvals/approvals.routes.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -30,6 +31,10 @@ app.get('/health', (_req, res) => {
 
 app.use('/api', authRoutes);
 app.use('/api', usersRoutes);
+app.use('/api', analyticsRoutes);
+app.use('/api', authRoutes);
+app.use('/api', usersRoutes);
+app.use('/api', reportsRoutes);
 app.use('/api', inventoryRoutes);
 app.use('/api', requestsRoutes);
 app.use('/api', approvalsRoutes);
@@ -44,11 +49,7 @@ app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`OpsHub backend listening on port ${port}`);
