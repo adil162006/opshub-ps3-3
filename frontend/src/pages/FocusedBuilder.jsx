@@ -49,7 +49,7 @@ function createDraft(site, enabled, theme) {
 export function FocusedBuilderIndex() {
   const sites = useDB((s) => s.sites);
   return (
-    <main className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: '#f6f7fb', color: '#0f172a' }}>
+    <main className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="max-w-4xl mx-auto space-y-4">
         <div><h1 className="text-xl font-semibold">OpsHub Builder</h1><p className="text-sm muted">Choose a site to enable or disable its module and update its theme.</p></div>
         <div className="grid md:grid-cols-3 gap-3">{sites.map((site) => (
@@ -91,7 +91,7 @@ export function FocusedBuilder() {
   };
 
   return (
-    <main className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: '#f6f7fb', color: '#0f172a' }}>
+    <main className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="max-w-3xl mx-auto space-y-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div><h1 className="text-xl font-semibold">{site.name} Builder</h1><p className="text-sm muted">Enable modules and adjust the site theme.</p></div>

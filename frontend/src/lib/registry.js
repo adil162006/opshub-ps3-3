@@ -9,7 +9,7 @@ export const TYPE_LABEL = {
 const DATA = ['stock', 'request', 'approval', 'assignment', 'consumption', 'repair', 'return'];
 const F = (key, label, type = 'text', extra = {}) => ({ key, label, type, ...extra });
 
-export const DEFAULT_THEME = { primary: '#4f46e5', accent: '#06b6d4', mode: 'light', layout: 'sidebar', radius: 12, font: 'Inter', density: 'comfortable' };
+export const DEFAULT_THEME = { primary: '#4f46e5', accent: '#06b6d4', mode: 'dark', layout: 'sidebar', radius: 12, font: 'Inter', density: 'comfortable' };
 
 export const MODULES = {
   auth: { name: 'Authentication & RBAC', icon: '🔐', group: 'Core', desc: 'Global JWT login, bcrypt hashes, Public/Member/Manager/Admin role matrix.', requires: [], outputs: ['session'], resources: [], page: { path: 'access', title: 'Access' } },
