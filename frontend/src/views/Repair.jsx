@@ -8,8 +8,8 @@ export function RepairView({ ctx }) {
   const can = RANK[ctx.role] >= 2; const waiting = reqs.filter((r) => r.status === 'approved');
   const keys = fields.map((f) => f.key);
   const start = (req) => setForm({ req, initial: Object.fromEntries(Object.entries(req).filter(([k]) => keys.includes(k))) });
-  const save = (v) => {
-    const ok = form.row ? attempt(() => ctx.api.put('repairs', form.row.id, v), 'Repair updated') : attempt(() => ctx.api.post('repairs', { ...v, requestId: form.req.id }), 'Repair started');
+  const save = async (v) => {
+    const ok = await attempt(() => form.row ? ctx.api.put('repairs', form.row.id, v) : ctx.api.post('repairs', { ...v, requestId: form.req.id }), form.row ? 'Repair updated' : 'Repair started');
     if (ok) setForm(null); return ok;
   };
   const move = (r, dir) => attempt(() => ctx.api.put('repairs', r.id, { status: STAGES[STAGES.indexOf(r.status) + dir] }));

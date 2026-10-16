@@ -5,4 +5,3 @@ export class AppError extends Error {
     this.details = details;
   }
 }
-export { ApiError as AppError } from './ApiError.js';

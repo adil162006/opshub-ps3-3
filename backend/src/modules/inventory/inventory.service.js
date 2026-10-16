@@ -47,17 +47,20 @@ export async function getItem(siteId, id) {
 }
 
 export async function createItem(siteId, body) {
+  const quantityOnHand = body.quantityOnHand ?? body.qty ?? 0;
+  const reorderLevel = body.reorderLevel ?? body.reorder ?? 0;
+  const unitPrice = body.unitPrice ?? body.price ?? 0;
   const [row] = await db.insert(items).values({
     siteId,
     sku: body.sku,
     name: body.name,
     description: body.description || null,
     unit: body.unit || 'each',
-    quantityOnHand: String(body.quantityOnHand ?? 0),
-    reorderLevel: String(body.reorderLevel ?? 0),
-    unitPrice: String(body.unitPrice ?? 0),
+    quantityOnHand: String(quantityOnHand),
+    reorderLevel: String(reorderLevel),
+    unitPrice: String(unitPrice),
     categoryId: body.categoryId || null,
-    metadata: body.metadata || {},
+    metadata: body.metadata || body,
   }).returning();
   return row;
 }
@@ -68,9 +71,18 @@ export async function updateItem(siteId, id, body) {
   for (const key of allowed) {
     if (body[key] !== undefined) patch[key] = body[key];
   }
-  if (patch.quantityOnHand !== undefined) patch.quantityOnHand = String(patch.quantityOnHand);
-  if (patch.reorderLevel !== undefined) patch.reorderLevel = String(patch.reorderLevel);
-  if (patch.unitPrice !== undefined) patch.unitPrice = String(patch.unitPrice);
+  const quantity = body.quantityOnHand ?? body.qty;
+  const reorder = body.reorderLevel ?? body.reorder;
+  const price = body.unitPrice ?? body.price;
+  if (quantity !== undefined) patch.quantityOnHand = String(quantity);
+  if (reorder !== undefined) patch.reorderLevel = String(reorder);
+  if (price !== undefined) patch.unitPrice = String(price);
+  const [current] = await db.select({ metadata: items.metadata }).from(items)
+    .where(and(eq(items.siteId, siteId), eq(items.id, id))).limit(1);
+  if (!current) return null;
+  const customValues = { ...body };
+  for (const key of ['id', 'site_id', 'siteId', 'createdAt', 'updatedAt', 'quantityOnHand', 'reorderLevel', 'unitPrice']) delete customValues[key];
+  patch.metadata = { ...(current.metadata || {}), ...customValues };
   patch.updatedAt = new Date();
 
   const [row] = await db.update(items)

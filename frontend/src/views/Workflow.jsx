@@ -13,15 +13,20 @@ const summary = (fields, r, items) => fields.filter((f) => f.type !== 'calc' && 
 
 export function RequestView({ ctx }) {
   const fields = fieldsOf(ctx.config, 'request'); const items = useRows(ctx, 'inventory'); const rows = useRows(ctx, 'requests');
-  const [open, setOpen] = useState(false); const [st, setSt] = useState('');
+  const [open, setOpen] = useState(null); const [st, setSt] = useState('');
   const shown = rows.filter((r) => !st || r.status === st).reverse();
   const steps = stepsOf(ctx.config);
   return (
     <Page title="Requests" sub={steps.length ? `Approval chain: ${steps.join(' → ')}` : 'No approval module connected'} actions={<button className="btn btn-primary" onClick={() => setOpen(!open)}>+ New request</button>}>
-      {open && <RecordForm fields={fields} items={items} submitLabel="Submit request" resetOnSuccess onSubmit={(v) => attempt(() => ctx.api.post('requests', v), 'Request submitted')} onCancel={() => setOpen(false)} />}
+      {open && <RecordForm key={open === true ? 'new-request' : open.id} fields={fields} items={items} initial={open === true ? {} : open} submitLabel={open === true ? 'Submit request' : 'Update request'} onSubmit={async (v) => {
+        const result = await attempt(() => open === true ? ctx.api.post('requests', v) : ctx.api.put('requests', open.id, v), open === true ? 'Request submitted' : 'Request updated');
+        if (result) setOpen(null);
+        return result;
+      }} onCancel={() => setOpen(null)} />}
       <select className="input" style={{ maxWidth: 200 }} value={st} onChange={(e) => setSt(e.target.value)}><option value="">All statuses</option>{['pending', 'approved', 'rejected', 'assigned', 'in-repair', 'closed'].map((s) => <option key={s}>{s}</option>)}</select>
       <DataTable rows={shown} columns={[{ key: 'requestNo', label: 'No' }, ...fields.filter((f) => f.type !== 'calc').map((f) => ({ label: f.label, render: (r) => fieldText(f, r, items) })),
-        { label: 'Status', render: (r) => <><Badge v={r.status} />{r.status === 'pending' && steps.length > 1 && <span className="text-xs muted ml-2">step {r.step + 1}/{steps.length}</span>}</> }, { key: 'requestedBy', label: 'By' }]} />
+        { label: 'Status', render: (r) => <><Badge v={r.status} />{r.status === 'pending' && steps.length > 1 && <span className="text-xs muted ml-2">step {r.step + 1}/{steps.length}</span>}</> }, { key: 'requestedBy', label: 'By' },
+        ...(RANK[ctx.role] >= 2 ? [{ label: 'Actions', render: (r) => <div className="flex gap-1">{r.status === 'pending' && <button className="btn btn-sm" onClick={() => setOpen(r)}>Edit</button>}{ctx.role === 'Admin' && <button className="btn btn-sm" onClick={() => confirm(`Delete ${r.requestNo}?`) && attempt(() => ctx.api.del('requests', r.id), 'Request deleted')}>Delete</button>}</div> }] : [])]} />
     </Page>);
 }
 
@@ -246,7 +251,7 @@ export function ReturnsView({ ctx }) {
   const refs = f.source === 'assignment' ? assignmentList.filter((a) => a.remaining > 0) : reps.filter((r) => r.status === 'completed' && !r.returned);
   return (
     <Page title="Return Management" sub={hasA ? 'Good-condition returns go back into stock automatically.' : 'Customer returns of completed repairs.'}>
-      <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(e) => { e.preventDefault(); if (attempt(() => ctx.api.post('returns', f), 'Return recorded')) setF({ ...f, refId: '', qty: '', reason: '' }); }}>
+      <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={async (e) => { e.preventDefault(); if (await attempt(() => ctx.api.post('returns', f), 'Return recorded')) setF({ ...f, refId: '', qty: '', reason: '' }); }}>
         {hasA && hasR && <div><label className="lbl">Source</label><select className="input" value={f.source} onChange={(e) => setF({ ...f, source: e.target.value, refId: '' })}><option value="assignment">Assigned material</option><option value="repair">Repaired device</option></select></div>}
         <div className="sm:col-span-2"><label className="lbl">Record</label><select className="input" value={f.refId} onChange={(e) => setF({ ...f, refId: e.target.value })}><option value="">Select…</option>
           {refs.map((r) => <option key={r.id} value={r.id}>{f.source === 'assignment' ? `${r.requestNo} · ${r.itemName} (${r.remaining} out)` : `${r.requestNo} · ${r.device}`}</option>)}</select></div>

@@ -2,9 +2,9 @@
 
 ## Purpose and source of truth
 
-OpsHub is a multi-site operations application. The React/Vite frontend now sends HTTP requests to the Express backend for authentication and site configuration. Other module workflows still use the browser-local prototype API and data store; they are not yet integrated with PostgreSQL.
+OpsHub is a multi-site operations application. The React/Vite frontend sends credentialed HTTP requests to the Express backend for authentication, site configuration, and published site module operations. The browser-local simulator remains for offline/non-UUID demo data and isolation demonstrations; it is not backend enforcement.
 
-Use the real auth and site route implementations for their current contracts. For remaining module operations, use `frontend/src/lib/api.js` as the expected request/response reference, not as evidence that the browser-local simulator is server-enforced. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
+Use the real route implementations and API clients under `frontend/src/api/` for current contracts. `frontend/src/lib/api.js` remains the offline simulator and compatibility reference, not evidence of server enforcement. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
 
 See the root [`AGENTS.md`](../AGENTS.md) for project-wide product constraints and [`features.md`](../features.md) for implementation status and remaining requirements.
 

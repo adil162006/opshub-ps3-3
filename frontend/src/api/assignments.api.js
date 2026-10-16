@@ -1,7 +1,7 @@
 import api from '../utils/axios.js';
 
-export const assignmentsQueryKey = (siteId) => ['assignments', siteId];
-export const assignmentDetailQueryKey = (siteId, id) => ['assignments', siteId, id];
+export const assignmentsQueryKey = (siteId) => ['site-data', siteId, 'assignments'];
+export const assignmentDetailQueryKey = (siteId, id) => ['site-data', siteId, 'assignments', id];
 
 export async function getAssignments(siteId) {
   const { data } = await api.get(`/api/${siteId}/assignments`);

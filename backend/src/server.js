@@ -36,14 +36,6 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use('/api', analyticsRoutes);
-app.use('/api', requestRoutes);
-app.use('/api', approvalRoutes);
-app.use('/api', authRoutes);
-app.use('/api', usersRoutes);
-app.use('/api', reportsRoutes);
-app.use('/api', inventoryRoutes);
-
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

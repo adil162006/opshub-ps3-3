@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
-import { apiSync } from '../lib/api';
-import { useDB } from '../lib/db';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getSite, getSites, publishSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
 import { connectionType, DEFAULT_THEME, defaultConfig, itemRequestFields, MODULES, repairRequestFields } from '../lib/registry';
 import { attempt } from '../ui';
 
@@ -47,7 +47,9 @@ function createDraft(site, enabled, theme) {
 }
 
 export function FocusedBuilderIndex() {
-  const sites = useDB((s) => s.sites);
+  const { data: sites = [], isLoading, error } = useQuery({ queryKey: SITES_QUERY_KEY, queryFn: getSites });
+  if (isLoading) return <main className="p-10">Loading sites…</main>;
+  if (error) return <main role="alert" className="p-10">Could not load sites: {error.message}</main>;
   return (
     <main className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="max-w-4xl mx-auto space-y-4">
@@ -63,7 +65,18 @@ export function FocusedBuilderIndex() {
 
 export function FocusedBuilder() {
   const { slug } = useParams();
-  const site = useDB((s) => s.sites.find((entry) => entry.slug === slug));
+  const queryClient = useQueryClient();
+  const { data: sites = [] } = useQuery({ queryKey: SITES_QUERY_KEY, queryFn: getSites });
+  const summary = sites.find((entry) => entry.slug === slug);
+  const { data: siteData, isLoading, error } = useQuery({
+    queryKey: ['focused-builder-site', summary?.id],
+    queryFn: () => getSite(summary.id),
+    enabled: !!summary,
+  });
+  const draft = siteData?.draft || siteData?.config;
+  const site = siteData && { ...siteData.site, role: siteData.role, draft };
+  if (isLoading) return <main className="p-10">Loading site configuration…</main>;
+  if (error) return <main role="alert" className="p-10">Could not load site: {error.message}</main>;
   if (!site) return <main className="p-10">Site not found.</main>;
 
   const types = new Set(site.draft.nodes.map((node) => node.data.type));
@@ -74,20 +87,26 @@ export function FocusedBuilder() {
   };
   const siteFeatures = FEATURES.filter((feature) => feature.key === FEATURE_BY_SITE[slug]);
   const theme = { ...DEFAULT_THEME, ...site.draft.theme };
-  const publish = () => attempt(() => {
+  const saveDraft = async (nextDraft) => {
+    const result = await saveSiteDraft(site.id, nextDraft);
+    queryClient.setQueryData(['focused-builder-site', site.id], (current) => current ? { ...current, draft: nextDraft } : current);
+    return result;
+  };
+  const publish = () => attempt(async () => {
     const draft = createDraft(site, enabled, theme);
-    apiSync('PUT', `/api/sites/${site.id}/draft`, { draft });
-    apiSync('POST', `/api/sites/${site.id}/publish`, { note: 'Updated modules or theme' });
+    await saveDraft(draft);
+    await publishSite(site.id, 'Updated modules or theme');
+    await queryClient.invalidateQueries({ queryKey: ['focused-builder-site', site.id] });
     return true;
   }, 'Changes published');
   const updateTheme = (key, value) => {
     const draft = { ...site.draft, theme: { ...theme, [key]: value } };
-    attempt(() => apiSync('PUT', `/api/sites/${site.id}/draft`, { draft }), 'Theme saved as draft');
+    attempt(() => saveDraft(draft), 'Theme saved as draft');
   };
   const toggleFeature = (feature, checked) => {
     const next = { ...enabled, [feature]: checked };
     const draft = createDraft(site, next, theme);
-    attempt(() => apiSync('PUT', `/api/sites/${site.id}/draft`, { draft }), `${siteFeatures.find((entry) => entry.key === feature).label} draft updated`);
+    attempt(() => saveDraft(draft), `${siteFeatures.find((entry) => entry.key === feature).label} draft updated`);
   };
 
   return (

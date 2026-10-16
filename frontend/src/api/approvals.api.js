@@ -1,6 +1,6 @@
 import api from '../utils/axios.js';
 
-export const approvalsQueryKey = (siteId) => ['approvals', siteId];
+export const approvalsQueryKey = (siteId) => ['site-data', siteId, 'approvals'];
 
 export async function getApprovals(siteId) {
   const { data } = await api.get(`/api/${siteId}/approvals`);

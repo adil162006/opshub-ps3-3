@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, DataTable, ExcelBar, Page, RecordForm, attempt, fmt, useRows } from '../ui';
+import { DataTable, ExcelBar, Page, RecordForm, attempt, fmt, useRows } from '../ui';
 import { RANK, fieldsOf } from '../lib/registry';
 
 export function InventoryView({ ctx }) {
@@ -7,8 +7,8 @@ export function InventoryView({ ctx }) {
   const [q, setQ] = useState(''); const [form, setForm] = useState(null); // null | {} | row
   const canWrite = RANK[ctx.role] >= 2; const canDel = RANK[ctx.role] >= 3;
   const shown = rows.filter((r) => JSON.stringify(Object.values(r)).toLowerCase().includes(q.toLowerCase()));
-  const save = (v) => {
-    const ok = form.id ? attempt(() => ctx.api.put('inventory', form.id, v), 'Item updated') : attempt(() => ctx.api.post('inventory', v), 'Item added');
+  const save = async (v) => {
+    const ok = await attempt(() => form.id ? ctx.api.put('inventory', form.id, v) : ctx.api.post('inventory', v), form.id ? 'Item updated' : 'Item added');
     if (ok) setForm(null); return ok;
   };
   const cols = [...fields.map((f) => ({ key: f.key, label: f.label, render: (r) => (f.key === 'qty' && r.reorder != null && r.qty <= r.reorder ? <span className="font-semibold text-red-600">{fmt(r.qty)} ⚠</span> : fmt(r[f.key])) })),

@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext';
 import { getSite, getSites, SITES_QUERY_KEY } from '../api/site.api';
 import { useSiteStore } from '../store/site.store';
 import { makeApi } from '../lib/api';
+import { makeHttpSiteApi } from '../api/siteData.api';
 import { DEFAULT_THEME, pagesOf } from '../lib/registry';
 import { Access, Dashboard } from '../views/Core';
 import SiteMembers from './SiteMembers';
@@ -25,6 +26,7 @@ export default function SiteRoute({ preview = false }) {
   });
   const activeSite = useSiteStore((state) => state.activeSite);
   const setActiveSite = useSiteStore((state) => state.setActiveSite);
+  const queryClient = useQueryClient();
   const remoteSite = sites.find((candidate) => candidate.slug === slug);
   const { data: siteData, isLoading: siteLoading, error: siteError } = useQuery({
     queryKey: ['site', remoteSite?.id, preview],
@@ -64,10 +66,12 @@ export default function SiteRoute({ preview = false }) {
         preview,
         user,
         base,
-        api: makeApi(remoteSite.id, preview),
+        api: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(remoteSite.id)
+          ? makeHttpSiteApi(remoteSite.id, preview, () => queryClient.invalidateQueries({ queryKey: ['site-data', remoteSite.id] }), siteData.config)
+          : makeApi(remoteSite.id, preview),
       },
     };
-  }, [activeSite, preview, remoteSite, siteData, slug, theme, user]);
+  }, [activeSite, preview, queryClient, remoteSite, siteData, slug, theme, user]);
 
   if (sitesLoading || siteLoading) return <div className="p-10 text-foreground">Loading site…</div>;
   if (sitesError || siteError) return <div role="alert" className="p-10 text-red-400">Could not load site: {(sitesError || siteError).message}</div>;

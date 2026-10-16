@@ -2,7 +2,7 @@
 
 ## Summary
 
-The frontend is a feature-rich prototype for the OpsHub problem statement, but it does **not yet meet the full delivery requirements**. Its API, authentication, persistence, workflows, and isolation checks run in the browser against seeded `localStorage` data. They are not backed by a running Express/PostgreSQL service. The backend package and database connection are scaffolding only.
+The frontend and backend are now partially connected, but OpsHub does **not yet meet the full delivery requirements**. UUID-backed published sites can use the HTTP API for module data and configuration. PostgreSQL RLS, database-backed integration coverage, and a deployed service setup remain pending. Browser-local demo and isolation tools remain available for non-UUID sample data.
 
 Status labels:
 
@@ -25,11 +25,18 @@ Status labels:
 
 The frontend README describes the prototype and demo accounts: [frontend/README.md](frontend/README.md). The module registry and simulated API are in `frontend/src/lib/registry.js` and `frontend/src/lib/api.js`.
 
+## Connected frontend paths
+
+- Published site module reads and writes use the backend HTTP API for UUID-backed sites; non-UUID demo sites continue to use the browser simulator.
+- Inventory, requests, returns, repairs, reports/workbooks, approvals, assignments, consumption, and analytics use backend routes. Inventory category and stock movement HTTP functions are available to the frontend.
+- The focused builder saves and publishes through the site API. The main React Flow builder also uses the site API.
+- Requests use the cookie-backed login session and Axios sends credentials with API calls.
+
 ## Frontend gaps and limitations
 
 - **Published configuration does not fully drive site navigation.** `SiteRoute.jsx` filters generated pages through a hard-coded per-slug allowlist. Modules enabled in the builder can therefore be missing from the live site's navigation and renderer. This prevents the stated “enable Returns on Distribution, publish, and reload” demo from being reliably satisfied.
 - **Admin navigation is hidden.** The shell currently exposes only the Hub link; Builder, Users, Catalogue, Tests, and Backup routes are not linked in the visible navigation.
-- **The API and identity flow are simulated.** Requests are handled synchronously in browser code and data is stored in `localStorage`; JWT signing/verification and bcrypt demo hashes in the frontend are not a substitute for server-side authentication or authorization.
+- **The offline simulator remains in the repository.** Isolation/demo tools and non-UUID sample sites still use browser state; live HTTP behavior requires UUID-backed sites and an available PostgreSQL service.
 - **Browser-local data is not shared or durable across users/devices.** There is no server-backed site provisioning, shared database, or deployment service.
 - **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security, ORM scoping, and cross-site database references remain unverified.
 - **The current schema target is incomplete.** `frontend/docs/schema.sql` defines only a subset of the data model and enables row-level security only for inventory. It does not yet define and secure every business table required by the feature set.

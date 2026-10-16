@@ -1,7 +1,7 @@
 import api from '../utils/axios.js';
 
 export const consumptionQueryKey = (siteId, assignmentItemId) => (
-  assignmentItemId ? ['consumption', siteId, { assignmentItemId }] : ['consumption', siteId]
+  assignmentItemId ? ['site-data', siteId, 'consumption', { assignmentItemId }] : ['site-data', siteId, 'consumption']
 );
 
 export async function getConsumption(siteId, assignmentItemId) {
