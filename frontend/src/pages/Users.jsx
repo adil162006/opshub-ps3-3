@@ -10,7 +10,7 @@ export default function Users() {
   const [f, setF] = useState({ name: '', email: '', password: '', role: 'User' });
   const setM = (u, siteId, role) => { const m = { ...u.memberships }; if (role) m[siteId] = role; else delete m[siteId]; attempt(() => apiSync('PATCH', `/api/users/${u.id}`, { memberships: m }), 'Access updated'); };
   return (
-    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: '#f6f7fb', color: '#0f172a' }}>
+    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <Page title="Users (global)" sub="One identity, per-site roles. Passwords stored as bcrypt hashes.">
         <form className="card p-4 grid sm:grid-cols-5 gap-3" onSubmit={(e) => { e.preventDefault(); if (attempt(() => apiSync('POST', '/api/users', f), 'User created')) setF({ name: '', email: '', password: '', role: 'User' }); }}>
           {['name', 'email', 'password'].map((k) => <div key={k}><label className="lbl">{k}</label><input className="input" type={k === 'password' ? 'password' : 'text'} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></div>)}

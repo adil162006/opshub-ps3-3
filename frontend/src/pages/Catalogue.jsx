@@ -22,11 +22,11 @@ CREATE POLICY site_isolation ON inventory
   USING (site_id = current_setting('app.site_id'));  -- SET LOCAL per request`;
 export default function Catalogue() {
   return (
-    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: '#f6f7fb', color: '#0f172a' }}>
+    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>>
       <Page title="Module catalogue & architecture" sub="13 approved modules as typed nodes. Scope is frozen.">
         <div className="card p-4"><div className="lbl">Architecture</div>
           <div className="flex items-stretch gap-2 flex-wrap text-sm mt-2">{[['Hub', 'JWT login · site switcher · users · catalogue'], ['Builder', 'React Flow canvas · typed nodes · presets · publish / rollback'], ['Renderer + API', '/api/:siteId/:resource · RBAC · site_id scope · transactions'], ['PostgreSQL', 'site_id on every table · RLS · JSONB site config']].map(([t, d], i, a) => (
-            <div key={t} className="flex items-center gap-2"><div className="border rounded-xl p-3 w-52 bg-slate-50"><b>{t}</b><div className="text-xs muted">{d}</div></div>{i < a.length - 1 && <span className="text-xl">→</span>}</div>))}</div>
+            <div key={t} className="flex items-center gap-2">              <div className="border rounded-xl p-3 w-52" style={{ background: 'var(--secondary)', borderColor: 'var(--border)' }}><b>{t}</b><div className="text-xs muted">{d}</div></div>{i < a.length - 1 && <span className="text-xl">→</span>}</div>))}</div>
           <p className="text-xs muted mt-3">This prototype runs the API layer in-browser (localStorage) behind the same REST contract; the schema below is the PostgreSQL target.</p></div>
         <div className="card overflow-x-auto"><table className="t"><thead><tr><th>Module</th><th>Group</th><th>Accepts (in)</th><th>Provides (out)</th><th>Resources</th><th>Builder node</th></tr></thead><tbody>
           {ORDER.map((t) => <tr key={t}><td><b>{MODULES[t].icon} {MODULES[t].name}</b><div className="text-xs muted">{MODULES[t].desc}</div></td><td>{MODULES[t].group}</td><td className="text-xs">{accepts(t).map((x) => TYPE_LABEL[x]).join(', ') || '—'}</td><td className="text-xs">{MODULES[t].outputs.map((x) => TYPE_LABEL[x]).join(', ') || '—'}</td><td className="text-xs">{MODULES[t].resources.join(', ') || '—'}</td><td className="font-mono text-xs">{t}</td></tr>)}</tbody></table></div>
