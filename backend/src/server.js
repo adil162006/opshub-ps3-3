@@ -12,6 +12,9 @@ import assignmentsRoutes from './modules/assignments/assignments.routes.js';
 import consumptionRoutes from './modules/consumption/consumption.routes.js';
 import repairsRoutes from './modules/repairs/repairs.routes.js';
 
+import requestsRoutes from './modules/requests/requests.routes.js';
+import approvalsRoutes from './modules/approvals/approvals.routes.js';
+
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
@@ -28,6 +31,8 @@ app.get('/health', (_req, res) => {
 app.use('/api', authRoutes);
 app.use('/api', usersRoutes);
 app.use('/api', inventoryRoutes);
+app.use('/api', requestsRoutes);
+app.use('/api', approvalsRoutes);
 app.use('/api', assignmentsRoutes);
 app.use('/api', consumptionRoutes);
 app.use('/api', repairsRoutes);

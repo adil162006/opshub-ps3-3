@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { assignmentItems, assignments, items, siteMembers, users } from '../../db/schema/index.js';
+import { assignmentItems, assignments, items, requests, siteMembers, users } from '../../db/schema/index.js';
 
 const RANK = { Member: 1, Manager: 2, Admin: 3 };
 export const rank = (role) => RANK[role] ?? 0;
@@ -115,6 +115,32 @@ export async function createAssignment(siteId, body, userId) {
   }
 
   return db.transaction(async (tx) => {
+    // If requestId is provided, validate request exists, belongs to this site, and is approved
+    if (requestId) {
+      const [req] = await tx
+        .select()
+        .from(requests)
+        .where(and(eq(requests.siteId, siteId), eq(requests.id, requestId)))
+        .limit(1);
+
+      if (!req) {
+        const err = new Error('Associated request not found in this site');
+        err.status = 404;
+        throw err;
+      }
+
+      if (req.status !== 'approved') {
+        const err = new Error(`${req.requestNumber} is ${req.status}; must be approved`);
+        err.status = 409;
+        throw err;
+      }
+
+      await tx
+        .update(requests)
+        .set({ status: 'assigned', updatedAt: new Date() })
+        .where(and(eq(requests.siteId, siteId), eq(requests.id, requestId)));
+    }
+
     // validate and deduct stock for each item
     for (const entry of bodyItems) {
       const [item] = await tx.select({ id: items.id, quantityOnHand: items.quantityOnHand, name: items.name })
