@@ -7,7 +7,7 @@ Express 5 API backed by PostgreSQL and Drizzle ORM. Run these commands from the 
 1. Create a PostgreSQL database and copy `backend/.env.example` to `backend/.env`.
 2. Set `DATABASE_URL`, a private `JWT_SECRET` (at least 32 random bytes), and the frontend origins in `CORS_ORIGINS`.
 3. From `backend/`, run `npm install`, then `npm run db:migrate` and `npm run db:seed`.
-4. Configure `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` before seeding to create the initial global administrator. `SEED_ADMIN_NAME` is optional and defaults to `OpsHub Administrator`; the password must be at least 6 characters. The seed script hashes the password and skips creation if that email already exists. Longer passwords are strongly recommended for administrator accounts.
+4. Optionally configure `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` before seeding to create the initial global administrator. The password must be at least 12 characters.
 5. Run `npm run dev` in `backend/`. The liveness endpoint is `GET /health`; `GET /ready` also checks PostgreSQL.
 
 Set SMTP values before creating users through the user management API. Account creation sends a welcome email and is rolled back if delivery fails.

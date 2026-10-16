@@ -23,7 +23,7 @@ Unless the frontend is updated in the same change, preserve these paths and payl
 | Area | Method and path | Expected behavior |
 | --- | --- | --- |
 | Authentication | `POST /api/auth/login` | All account types use this endpoint. Accept `{email,password}`, set the HttpOnly auth cookie, and return public user/site data without the token; invalid credentials return 401. |
-| Global-admin signup | `POST /api/auth/global-admin/signup` | Accept `{name,email,password}` and create an active global administrator; password must be at least 6 characters. Longer passwords are strongly recommended for administrator accounts. Returns public user data without a password hash. |
+| Global-admin signup | `POST /api/auth/global-admin/signup` | Accept `{name,email,password}` and create an active global administrator; password must be at least 12 characters. Returns public user data without a password hash. |
 | Current user | `GET /api/auth/me` | Return the authenticated public user, without password hashes. |
 | Logout | `POST /api/auth/logout` | Clear the HttpOnly auth cookie. |
 | Sites | `GET /api/sites` | Return accessible site summaries with `id`, `slug`, `name`, `description`, `live`, `role`, `theme`, and `moduleTypes`. |
