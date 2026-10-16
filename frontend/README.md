@@ -9,6 +9,8 @@ npm run test:isolation   # 50 site_id / RBAC / transaction tests (also in-app: T
 npm run build
 ```
 
+Routes use browser history, so site URLs look like `/s/central-stores` instead of `/#/s/central-stores`. Production hosting must rewrite unknown paths to `index.html` so direct links and refreshes work.
+
 The module API layer (`src/lib/api.js`) is a simulated REST backend running in the browser (localStorage). The authentication and site APIs use the Express backend and PostgreSQL.
 
 ## Backend authentication

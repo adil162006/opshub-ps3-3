@@ -11,7 +11,7 @@ import {
 } from '../api/users.api';
 import { ROLES } from '../lib/registry';
 
-const emptyForm = () => ({ name: '', email: '', password: '', role: 'User', memberships: {} });
+const emptyForm = () => ({ name: '', email: '', role: 'User', memberships: {} });
 const membershipsForForm = (memberships = []) => Object.fromEntries(
   memberships.map(({ siteId, role }) => [siteId, role]),
 );
@@ -133,7 +133,6 @@ export default function Users() {
             addMutation.mutate({
               name: form.name,
               email: form.email,
-              password: form.password,
               role: form.role,
               memberships: form.role === 'Admin' ? [] : toMembershipList(form.memberships),
             });
@@ -143,9 +142,9 @@ export default function Users() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label><span className="lbl">Temporary password</span><input className="input" type="password" required minLength={12} autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
             <label><span className="lbl">Global role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="User">User</option><option value="Admin">Global Admin</option></select></label>
           </div>
+          <p className="text-xs muted">New accounts receive an initial password based on the email address and an invitation by email.</p>
           {form.role !== 'Admin' && (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <SiteRoleFields

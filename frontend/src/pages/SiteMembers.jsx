@@ -16,7 +16,7 @@ export default function SiteMembers({ ctx }) {
   const queryClient = useQueryClient();
   const siteId = ctx.site.id;
   const isSiteAdmin = ctx.role === 'Admin';
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'Member' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'Member' });
   const membersQuery = useQuery({
     queryKey: siteMembersQueryKey(siteId),
     queryFn: () => getSiteUsers(siteId),
@@ -28,7 +28,7 @@ export default function SiteMembers({ ctx }) {
       toast.ok(result.initialPasswordSent
         ? 'User added and account invitation sent.'
         : 'Existing user added to this site; invitation sent.');
-      setForm({ name: '', email: '', password: '', role: 'Member' });
+      setForm({ name: '', email: '', role: 'Member' });
       await refreshMembers();
     },
     onError: (error) => toast.err(errorMessage(error)),
@@ -61,19 +61,16 @@ export default function SiteMembers({ ctx }) {
           className="card p-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end"
           onSubmit={(event) => {
             event.preventDefault();
-            const input = { name: form.name, email: form.email, role: form.role };
-            if (form.password) input.password = form.password;
-            addMutation.mutate(input);
+            addMutation.mutate({ name: form.name, email: form.email, role: form.role });
           }}
         >
           <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
           <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-          <label><span className="lbl">Temporary password</span><input className="input" type="password" minLength={12} autoComplete="new-password" placeholder="Required for a new account" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
           <label><span className="lbl">Site role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label>
           <button className="btn btn-primary" type="submit" disabled={addMutation.isPending}>
             {addMutation.isPending ? 'Adding…' : 'Add to site'}
           </button>
-          <p className="text-xs muted sm:col-span-2 lg:col-span-5">An existing account is added to this site. Otherwise, a new account is created and an invitation is emailed. A new account requires a password of at least 12 characters.</p>
+          <p className="text-xs muted sm:col-span-2 lg:col-span-5">An existing account is added to this site. Otherwise, a new account is created with an initial password based on the email address, and an invitation is emailed.</p>
         </form>
       )}
       {membersQuery.isLoading && <p className="muted">Loading site members…</p>}

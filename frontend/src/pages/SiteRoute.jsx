@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, NavLink, useParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext';
 import { getSite, getSites, SITES_QUERY_KEY } from '../api/site.api';
 import { useSiteStore } from '../store/site.store';
@@ -93,7 +93,11 @@ export default function SiteRoute({ preview = false }) {
   };
 
   const pages = pagesOf(ctx.config);
-  const page = pages.find((p) => p.path === (sub || ''));
+  const landingPage = pages.find((candidate) => candidate.path === '') || pages[0];
+  const page = pages.find((candidate) => candidate.path === (sub || '')) || (!sub ? landingPage : null);
+  if (sub && !page && landingPage) {
+    return <Navigate to={`${ctx.base}/${landingPage.path}`.replace(/\/$/, '')} replace />;
+  }
   const View = page ? VIEWS[page.type] : null;
 
   const navLink = (p) => (
@@ -114,7 +118,7 @@ export default function SiteRoute({ preview = false }) {
 
   const body = View
     ? <View ctx={ctx} />
-    : <div className="p-10 text-center" style={{ color: 'var(--muted-foreground)' }}>This page is not part of this site's navigation.</div>;
+    : <div className="p-10 text-center" style={{ color: 'var(--muted-foreground)' }}>This site has no configured pages yet.</div>;
 
   return (
     <div className={t.density === 'compact' ? 'compact' : ''} style={style}>

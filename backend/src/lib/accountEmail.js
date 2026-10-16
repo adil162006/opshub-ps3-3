@@ -3,13 +3,22 @@ import { ApiError as AppError } from './ApiError.js';
 
 function createTransport() {
   const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
+  const user = process.env.SMTP_USERNAME || process.env.SMTP_USER;
   const pass = process.env.SMTP_PASSWORD;
-  const from = process.env.SMTP_FROM || user;
-  if (!host || !from) throw new AppError(503, 'Email delivery is not configured');
+  const from = process.env.SMTP_FROM_EMAIL || process.env.SMTP_FROM || user;
+  const fromName = process.env.SMTP_FROM_NAME;
+  const missingSettings = [];
+  if (!host) missingSettings.push('SMTP_HOST');
+  if (!from) missingSettings.push('SMTP_FROM_EMAIL (or SMTP_FROM / SMTP_USERNAME)');
+  if (Boolean(user) !== Boolean(pass)) {
+    missingSettings.push('SMTP_USERNAME (or SMTP_USER) and SMTP_PASSWORD must be configured together');
+  }
+  if (missingSettings.length) {
+    throw new AppError(503, `Email delivery is not configured: ${missingSettings.join('; ')}`);
+  }
   const port = Number(process.env.SMTP_PORT) || 587;
   return {
-    from,
+    from: fromName ? { name: fromName, address: from } : from,
     transport: nodemailer.createTransport({
       host,
       port,

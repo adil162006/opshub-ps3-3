@@ -1,4 +1,4 @@
-import { HashRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Toaster } from './ui';
 import { useAuth } from './context/Authcontext';
@@ -97,7 +97,7 @@ const SiteShell = () => { const { slug } = useParams(); return <Shell key={slug}
 
 export default function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Shell><Hub /></Shell>} />
@@ -112,6 +112,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
-    </HashRouter>
+    </BrowserRouter>
   );
 }

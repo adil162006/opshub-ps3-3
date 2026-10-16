@@ -123,13 +123,12 @@ async function createGlobalUserImpl(actorId, input) {
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
   if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
+  const initialPassword = email.split('@')[0];
 
   const memberships = normalizeMemberships(input.memberships);
   const role = input.role || 'User';
   if (!['User', 'Admin'].includes(role)) throw new AppError(422, 'role must be User or Admin');
   if (role === 'Admin' && memberships.length) throw new AppError(422, 'Global administrators do not use site memberships');
-  const password = input.password;
-  if (typeof password !== 'string' || password.length < 12) throw new AppError(422, 'password must be at least 12 characters');
 
   if (memberships.length) {
     const siteIds = memberships.map((membership) => membership.siteId);
@@ -139,7 +138,7 @@ async function createGlobalUserImpl(actorId, input) {
     memberships.forEach((membership) => { membership.siteName = siteById.get(membership.siteId); });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(initialPassword, 12);
   const [created] = await db.transaction(async (tx) => {
     const [user] = await tx.insert(users).values({
       name, email, passwordHash, isHubAdmin: role === 'Admin', isActive: false,
@@ -151,7 +150,7 @@ async function createGlobalUserImpl(actorId, input) {
   });
 
   try {
-    await sendAccountEmail({ name, email, password, memberships });
+    await sendAccountEmail({ name, email, password: initialPassword, memberships });
     await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, created.id));
   } catch (error) {
     // Do not leave an unusable active account behind when the welcome message cannot be delivered.
@@ -222,6 +221,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
   if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
+  const initialPassword = email.split('@')[0];
 
   const role = input.role || 'Member';
   if (!SITE_ROLES.has(role)) throw new AppError(422, 'Site role must be Member, Manager or Admin');
@@ -234,9 +234,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
   let account;
 
   if (isNewUser) {
-    const password = input.password;
-    if (typeof password !== 'string' || password.length < 12) throw new AppError(422, 'A new account password must be at least 12 characters');
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
     account = await db.transaction(async (tx) => {
       const [created] = await tx.insert(users).values({
         name, email, passwordHash, isHubAdmin: false, isActive: false,
@@ -263,7 +261,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
 
   try {
     await sendAccountEmail({
-      name: account.name, email: account.email, password: isNewUser ? input.password : null,
+      name: account.name, email: account.email, password: isNewUser ? initialPassword : null,
       memberships: [{ siteId, siteName: site.name, role }],
     });
     if (isNewUser) await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, account.id));
