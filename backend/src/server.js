@@ -5,8 +5,6 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
-import authRoutes from './modules/auth/auth.routes.js';
-import usersRoutes from './modules/users/users.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
@@ -19,8 +17,6 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cors({ origin: true }));
-app.use(express.json());
 app.use('/api', analyticsRoutes);
 app.use('/api', authRoutes);
 app.use('/api', usersRoutes);
@@ -29,11 +25,6 @@ app.use('/api', inventoryRoutes);
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
-// Mounted API routes
-app.use('/api', authRoutes);
-app.use('/api', usersRoutes);
-app.use('/api', analyticsRoutes);
 
 // Catch 404 for undefined routes
 app.use((req, res) => {
