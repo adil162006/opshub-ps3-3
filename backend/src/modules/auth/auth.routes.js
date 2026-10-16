@@ -1,20 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
-import {
-  getSetupStatus,
-  setupFirstAdmin,
-  login,
-  me,
-} from './auth.controller.js';
+import { getMeController, loginGlobalAdminController } from './auth.controller.js';
 
 const router = Router();
 
-// Public setup endpoints
-router.get('/auth/setup-status', getSetupStatus);
-router.post('/auth/setup-admin', setupFirstAdmin);
-
-// Standard auth endpoints
-router.post('/auth/login', login);
-router.get('/auth/me', requireAuth, me);
+// Postman: POST /api/auth/global-admin/login with { "email": "...", "password": "..." }
+router.post('/auth/global-admin/login', loginGlobalAdminController);
+router.get('/auth/me', requireAuth, getMeController);
 
 export default router;
