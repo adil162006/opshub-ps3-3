@@ -1,6 +1,13 @@
 import { useState } from 'react';
-import { Badge, DataTable, Page, RecordForm, attempt, fieldText, fmt, useRows, when } from '../ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Badge, DataTable, Page, RecordForm, attempt, fieldText, fmt, toast, useRows, when } from '../ui';
 import { RANK, fieldsOf, hasModule, itemKey, stepsOf } from '../lib/registry';
+import { approvalsQueryKey, decideApproval, getApprovals } from '../api/approvals.api';
+import { assignmentsQueryKey, createAssignment, getAssignments } from '../api/assignments.api';
+import { consumptionQueryKey, getConsumption, recordConsumption } from '../api/consumption.api';
+import { isUuid } from '../utils/uuid';
+
+const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
 
 const summary = (fields, r, items) => fields.filter((f) => f.type !== 'calc' && r[f.key] !== '' && r[f.key] != null).map((f) => `${f.label}: ${fieldText(f, r, items)}`).join(' · ');
 
@@ -19,10 +26,41 @@ export function RequestView({ ctx }) {
 }
 
 export function ApprovalView({ ctx }) {
+  const siteId = ctx.site?.id;
+  const queryClient = useQueryClient();
+  const approvalsQuery = useQuery({
+    queryKey: approvalsQueryKey(siteId),
+    queryFn: () => getApprovals(siteId),
+    enabled: isUuid(siteId),
+  });
+  const decideMutation = useMutation({
+    mutationFn: (payload) => decideApproval(siteId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: approvalsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
+      toast.ok('Decision recorded');
+    },
+    onError: (err) => toast.err(errorMessage(err)),
+  });
+
   const fields = fieldsOf(ctx.config, 'request'); const items = useRows(ctx, 'inventory'); const reqs = useRows(ctx, 'requests'); const apps = useRows(ctx, 'approvals');
   const steps = stepsOf(ctx.config); const [c, setC] = useState({});
   const pending = reqs.filter((r) => r.status === 'pending');
-  const decide = (r, decision) => attempt(() => ctx.api.post('approvals', { requestId: r.id, decision, comment: c[r.id] || '' }), decision === 'approve' ? 'Approved' : 'Rejected');
+
+  const decide = async (r, decision) => {
+    if (isUuid(siteId)) {
+      try {
+        await decideMutation.mutateAsync({ requestId: r.id, decision, comment: c[r.id] || '' });
+      } catch {
+        // error handled in onError
+      }
+    } else {
+      attempt(() => ctx.api.post('approvals', { requestId: r.id, decision, comment: c[r.id] || '' }), decision === 'approve' ? 'Approved' : 'Rejected');
+    }
+  };
+
+  const logList = (isUuid(siteId) && approvalsQuery.data) ? approvalsQuery.data : apps;
+
   return (
     <Page title="Approvals" sub={`Chain: ${steps.map((s, i) => `${i + 1}. ${s}`).join(' → ')}`}>
       {pending.length === 0 && <div className="card p-6 muted text-center">No requests awaiting approval 🎉</div>}
@@ -37,44 +75,90 @@ export function ApprovalView({ ctx }) {
         </div>);
       })}</div>
       <h2 className="font-semibold">Decision log</h2>
-      <DataTable rows={[...apps].reverse()} columns={[{ key: 'requestNo', label: 'Request' }, { label: 'Step', render: (a) => `${a.step + 1} · ${a.role}` }, { label: 'Decision', render: (a) => <Badge v={a.decision} /> }, { key: 'comment', label: 'Comment' }, { key: 'by', label: 'By' }, { label: 'When', render: (a) => when(a.at) }]} />
+      <DataTable rows={[...logList].reverse()} columns={[{ key: 'requestNo', label: 'Request' }, { label: 'Step', render: (a) => `${a.step + 1} · ${a.role}` }, { label: 'Decision', render: (a) => <Badge v={a.decision} /> }, { key: 'comment', label: 'Comment' }, { key: 'by', label: 'By' }, { label: 'When', render: (a) => when(a.at) }]} />
     </Page>);
 }
 
 export function AssignmentView({ ctx }) {
+  const siteId = ctx.site?.id;
+  const queryClient = useQueryClient();
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey(siteId),
+    queryFn: () => getAssignments(siteId),
+    enabled: isUuid(siteId),
+  });
+  const createMutation = useMutation({
+    mutationFn: (payload) => createAssignment(siteId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: assignmentsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
+      toast.ok('Assigned — stock decremented');
+    },
+    onError: (err) => toast.err(errorMessage(err)),
+  });
+
   const reqs = useRows(ctx, 'requests'); const items = useRows(ctx, 'inventory'); const asg = useRows(ctx, 'assignments');
   const key = itemKey(ctx.config); const fields = fieldsOf(ctx.config, 'request');
   const [f, setF] = useState({}); const [crash, setCrash] = useState(false);
   const ready = reqs.filter((r) => r.status === 'approved'); const canAssign = RANK[ctx.role] >= 2;
+
+  const onAssign = async (r, qty, assignee) => {
+    if (isUuid(siteId)) {
+      try {
+        await createMutation.mutateAsync({
+          requestId: r.id,
+          qty: Number(qty),
+          assignee: assignee ?? r.team,
+        });
+      } catch {
+        // error handled in onError
+      }
+    } else {
+      attempt(() => ctx.api.post('assignments', { requestId: r.id, qty, assignee, _simulateCrash: crash }), 'Assigned — stock decremented');
+    }
+  };
+
+  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+
   return (
     <Page title="Material Assignment" sub="Approved requests → issue stock. Stock decrement + request status + assignment row commit in one transaction.">
       {ctx.role === 'Admin' && <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={crash} onChange={(e) => setCrash(e.target.checked)} /> Simulate crash after stock decrement (demo: verify rollback)</label>}
       {ready.length === 0 && <div className="card p-6 muted text-center">No approved requests waiting for assignment.</div>}
       <div className="grid md:grid-cols-2 gap-3">{ready.map((r) => {
         const item = items.find((i) => i.id === r[key]); const qty = f[r.id]?.qty ?? r.qty; const short = item && qty > item.qty;
+        const assignee = f[r.id]?.assignee ?? r.team ?? '';
         return (<div key={r.id} className="card p-4 space-y-2">
           <div className="flex justify-between"><b>{r.requestNo}</b><Badge v={r.priority || 'Normal'} /></div>
           <div className="text-sm">{summary(fields, r, items)}</div>
           <div className={`text-sm ${short ? 'text-red-600 font-semibold' : 'muted'}`}>Available: {item ? fmt(item.qty) : '—'} {short && '· insufficient'}</div>
           <div className="grid grid-cols-2 gap-2"><div><label className="lbl">Qty</label><input className="input" type="number" min="1" value={qty} onChange={(e) => setF({ ...f, [r.id]: { ...f[r.id], qty: e.target.value } })} /></div>
-            <div><label className="lbl">Assign to</label><input className="input" value={f[r.id]?.assignee ?? r.team ?? ''} onChange={(e) => setF({ ...f, [r.id]: { ...f[r.id], assignee: e.target.value } })} /></div></div>
-          <button className="btn btn-primary" disabled={!canAssign} onClick={() => attempt(() => ctx.api.post('assignments', { requestId: r.id, qty, assignee: f[r.id]?.assignee ?? r.team, _simulateCrash: crash }), 'Assigned — stock decremented')}>Assign & decrement stock</button>
+            <div><label className="lbl">Assign to</label><input className="input" value={assignee} onChange={(e) => setF({ ...f, [r.id]: { ...f[r.id], assignee: e.target.value } })} /></div></div>
+          <button className="btn btn-primary" disabled={!canAssign} onClick={() => onAssign(r, qty, assignee)}>Assign & decrement stock</button>
         </div>);
       })}</div>
       <h2 className="font-semibold">Assignments</h2>
-      <DataTable rows={[...asg].reverse()} columns={[{ key: 'requestNo', label: 'Request' }, { key: 'itemName', label: 'Item' }, { key: 'qty', label: 'Issued' }, { key: 'remaining', label: 'Remaining' }, { key: 'assignee', label: 'Assignee' }, { label: 'Status', render: (a) => <Badge v={a.status} /> }, { key: 'issuedBy', label: 'By' }]} />
+      <DataTable rows={[...assignmentList].reverse()} columns={[{ key: 'requestNo', label: 'Request' }, { key: 'itemName', label: 'Item' }, { key: 'qty', label: 'Issued' }, { key: 'remaining', label: 'Remaining' }, { key: 'assignee', label: 'Assignee' }, { label: 'Status', render: (a) => <Badge v={a.status} /> }, { key: 'issuedBy', label: 'By' }]} />
     </Page>);
 }
 
 export function AssignmentCards({ ctx }) {
-  const asg = useRows(ctx, 'assignments'); const [who, setWho] = useState('');
-  const people = [...new Set(asg.map((a) => a.assignee))];
+  const siteId = ctx.site?.id;
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey(siteId),
+    queryFn: () => getAssignments(siteId),
+    enabled: isUuid(siteId),
+  });
+  const asg = useRows(ctx, 'assignments');
+  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+  const [who, setWho] = useState('');
+  const people = [...new Set(assignmentList.map((a) => a.assignee))];
+
   return (
     <Page title="Field View" sub="What each team has in hand and how much is left.">
       <select className="input" style={{ maxWidth: 240 }} value={who} onChange={(e) => setWho(e.target.value)}><option value="">All teams</option>{people.map((p) => <option key={p}>{p}</option>)}</select>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{asg.filter((a) => !who || a.assignee === who).map((a) => {
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{assignmentList.filter((a) => !who || a.assignee === who).map((a) => {
         const used = a.qty - a.remaining;
-        return (<div key={a.id} className="card p-4 space-y-2"><div className="flex justify-between"><b>{a.itemName}</b><Badge v={a.status} /></div>
+        return (<div key={a.id || a.assignmentItemId} className="card p-4 space-y-2"><div className="flex justify-between"><b>{a.itemName}</b><Badge v={a.status} /></div>
           <div className="text-sm muted">{a.assignee} · {a.requestNo}</div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border)' }}><div className="h-full" style={{ width: `${(used / a.qty) * 100}%`, background: 'var(--accent)' }} /></div>
           <div className="text-sm tabular-nums">{used} used · <b>{a.remaining} left</b> of {a.qty}</div></div>);
@@ -83,26 +167,83 @@ export function AssignmentCards({ ctx }) {
 }
 
 export function ConsumptionView({ ctx }) {
+  const siteId = ctx.site?.id;
+  const queryClient = useQueryClient();
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey(siteId),
+    queryFn: () => getAssignments(siteId),
+    enabled: isUuid(siteId),
+  });
+  const consumptionQuery = useQuery({
+    queryKey: consumptionQueryKey(siteId),
+    queryFn: () => getConsumption(siteId),
+    enabled: isUuid(siteId),
+  });
+  const recordMutation = useMutation({
+    mutationFn: (payload) => recordConsumption(siteId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: consumptionQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: assignmentsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
+      toast.ok('Usage logged');
+      setF({ assignmentId: '', qty: '', note: '' });
+    },
+    onError: (err) => toast.err(errorMessage(err)),
+  });
+
   const asg = useRows(ctx, 'assignments'); const log = useRows(ctx, 'consumption');
+  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+  const consumptionList = (isUuid(siteId) && consumptionQuery.data) ? consumptionQuery.data : log;
+
   const [f, setF] = useState({ assignmentId: '', qty: '', note: '' });
-  const open = asg.filter((a) => a.remaining > 0); const sel = open.find((a) => a.id === f.assignmentId);
+  const open = assignmentList.filter((a) => a.remaining > 0);
+  const sel = open.find((a) => a.id === f.assignmentId || a.assignmentItemId === f.assignmentId);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (isUuid(siteId)) {
+      try {
+        await recordMutation.mutateAsync({
+          assignmentId: sel?.id || f.assignmentId,
+          assignmentItemId: sel?.assignmentItemId || undefined,
+          qty: Number(f.qty),
+          note: f.note,
+        });
+      } catch {
+        // error handled in onError
+      }
+    } else {
+      if (attempt(() => ctx.api.post('consumption', f), 'Usage logged')) {
+        setF({ assignmentId: '', qty: '', note: '' });
+      }
+    }
+  };
+
   return (
     <Page title="Consumption Tracking" sub="Log material used in the field against an assignment.">
-      <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(e) => { e.preventDefault(); if (attempt(() => ctx.api.post('consumption', f), 'Usage logged')) setF({ assignmentId: '', qty: '', note: '' }); }}>
-        <div className="sm:col-span-2"><label className="lbl">Assignment</label><select className="input" value={f.assignmentId} onChange={(e) => setF({ ...f, assignmentId: e.target.value })}><option value="">Select…</option>{open.map((a) => <option key={a.id} value={a.id}>{a.requestNo} · {a.itemName} · {a.assignee} ({a.remaining} left)</option>)}</select></div>
+      <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={onSubmit}>
+        <div className="sm:col-span-2"><label className="lbl">Assignment</label><select className="input" value={f.assignmentId} onChange={(e) => setF({ ...f, assignmentId: e.target.value })}><option value="">Select…</option>{open.map((a) => <option key={a.assignmentItemId || a.id} value={a.assignmentItemId || a.id}>{a.requestNo} · {a.itemName} · {a.assignee} ({a.remaining} left)</option>)}</select></div>
         <div><label className="lbl">Qty used{sel && ` (max ${sel.remaining})`}</label><input className="input" type="number" min="1" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></div>
         <div><label className="lbl">Note</label><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
         <div className="sm:col-span-4"><button className="btn btn-primary">Log consumption</button></div>
       </form>
-      <DataTable rows={[...log].reverse()} columns={[{ key: 'date', label: 'Date' }, { key: 'itemName', label: 'Item' }, { key: 'qty', label: 'Qty' }, { key: 'note', label: 'Note' }, { key: 'by', label: 'By' }]} />
+      <DataTable rows={[...consumptionList].reverse()} columns={[{ key: 'date', label: 'Date' }, { key: 'itemName', label: 'Item' }, { key: 'qty', label: 'Qty' }, { key: 'note', label: 'Note' }, { key: 'by', label: 'By' }]} />
     </Page>);
 }
 
 export function ReturnsView({ ctx }) {
-  const asg = useRows(ctx, 'assignments'); const reps = useRows(ctx, 'repairs'); const rets = useRows(ctx, 'returns');
+  const siteId = ctx.site?.id;
+  const assignmentsQuery = useQuery({
+    queryKey: assignmentsQueryKey(siteId),
+    queryFn: () => getAssignments(siteId),
+    enabled: isUuid(siteId),
+  });
+  const asg = useRows(ctx, 'assignments');
+  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+  const reps = useRows(ctx, 'repairs'); const rets = useRows(ctx, 'returns');
   const hasA = hasModule(ctx.config, 'assignment'); const hasR = hasModule(ctx.config, 'repair');
   const [f, setF] = useState({ source: hasA ? 'assignment' : 'repair', refId: '', qty: '', condition: 'good', resolution: 'refund', reason: '' });
-  const refs = f.source === 'assignment' ? asg.filter((a) => a.remaining > 0) : reps.filter((r) => r.status === 'completed' && !r.returned);
+  const refs = f.source === 'assignment' ? assignmentList.filter((a) => a.remaining > 0) : reps.filter((r) => r.status === 'completed' && !r.returned);
   return (
     <Page title="Return Management" sub={hasA ? 'Good-condition returns go back into stock automatically.' : 'Customer returns of completed repairs.'}>
       <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(e) => { e.preventDefault(); if (attempt(() => ctx.api.post('returns', f), 'Return recorded')) setF({ ...f, refId: '', qty: '', reason: '' }); }}>
