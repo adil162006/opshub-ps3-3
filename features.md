@@ -23,7 +23,7 @@ Status labels:
 - Recharts dashboards, and browser-based Excel export plus inventory import/upsert with role checks in the simulated API.
 - Seeded demo data, browser-based JSON backup/restore/reset, and a frontend isolation/RBAC test suite.
 
-The frontend README describes the prototype and demo accounts: [frontend/README.md](frontend/README.md). The module registry and simulated API are in `frontend/src/lib/registry.js` and `frontend/src/lib/api.js`.
+The module registry and simulated API are in `frontend/src/lib/registry.js` and `frontend/src/lib/api.js`.
 
 ## Connected frontend paths
 
@@ -40,12 +40,12 @@ The frontend README describes the prototype and demo accounts: [frontend/README.
 - **Browser-local data is not shared or durable across users/devices.** A server-backed site provisioning API and shared database are implemented, but no deployed service is configured; browser-local demo sites remain.
 - **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security is not implemented, and real database isolation has not been verified.
 - **Database-level tenant isolation is incomplete.** The canonical schema is defined in `backend/src/db/schema/` and migrated through `backend/drizzle/`. PostgreSQL row-level security is still pending for business tables; `frontend/docs/schema.sql` now points to that canonical source.
-- **Proposal documentation is incomplete.** The in-app catalogue gives an architecture overview, module list, API outline, and canonical schema pointer, but the requested complete architecture diagram, data model/API design, and project README still need to be delivered and aligned with the real backend.
+- **Documentation is available.** See the repository [README](README.md), [architecture](docs/architecture.md), [API reference](docs/api.md), [data model](docs/data-model.md), [setup guide](docs/setup.md), and [workflow guide](docs/workflows.md). These documents should be kept aligned as code changes.
 - **No end-to-end tests exercise a real browser-to-API-to-PostgreSQL deployment.**
 
 ## Backend: implementation in progress
 
-The backend now has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for the operational workflows. It has not yet been validated against a running PostgreSQL instance, and it is not wired to the frontend's default browser-local API.
+The backend has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for operational workflows. The migration/seed workflow has been run against PostgreSQL. UUID-backed frontend sites can use the HTTP API; sample non-UUID sites and simulator paths remain browser-local.
 
 - [x] Implement Express startup, environment loading, configurable CORS origins, liveness/readiness endpoints, centralized errors, and graceful database shutdown.
 - [x] Define Drizzle tables and migrations for users, sites, site memberships, versions/deploy history, inventory, requests, approvals, assignments, consumption, returns, repairs, reports jobs, and audit data.
@@ -67,5 +67,5 @@ The backend now has an Express service, Drizzle schema/migrations, server-issued
 - [x] Published pages and navigation are derived from enabled modules in configuration without site-slug-specific frontend code.
 - [ ] Demonstrate the same three sites using a shared backend and database while proving cross-site reads and writes are denied at both API and database levels.
 - [ ] Complete the supplied live-demo script, including enabling Returns on Distribution and role-restricted Excel import/export against the real service.
-- [ ] Finish and validate the architecture diagram, complete module registry mapping, data model/API design, and README against the implemented system.
+- [x] Add and align the architecture diagram, module registry overview, data model/API reference, setup/workflow guides, and project README with the implemented system.
 - [ ] Run the full frontend build and prototype tests, plus backend and end-to-end tests after the server implementation is complete.

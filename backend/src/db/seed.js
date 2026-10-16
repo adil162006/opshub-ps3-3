@@ -2,7 +2,7 @@ import { inArray, sql } from 'drizzle-orm';
 import { db, pool } from './index.js';
 import { deployments, modules, siteMembers, siteModules, siteVersions, sites, users } from './schema/index.js';
 import { DEFAULT_THEME, MODULES, PRESETS } from '../../../frontend/src/lib/registry.js';
-import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password.js';
+import { hashPassword } from '../lib/password.js';
 
 const moduleRegistry = [
   { key: 'auth_rbac', name: 'Authentication & RBAC', category: 'Core' },
@@ -138,8 +138,8 @@ try {
     const seedEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
     const seedPassword = process.env.SEED_ADMIN_PASSWORD;
     if (seedEmail || seedPassword) {
-      if (!seedEmail || !seedPassword || seedPassword.length < MIN_PASSWORD_LENGTH || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(seedEmail)) {
-        throw new Error(`Set both SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least ${MIN_PASSWORD_LENGTH} characters.`);
+      if (!seedEmail || !seedPassword || seedPassword.length < 12 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(seedEmail)) {
+        throw new Error('Set both SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least 12 characters.');
       }
       const [existingAdmin] = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${seedEmail}`).limit(1);
       if (!existingAdmin) {

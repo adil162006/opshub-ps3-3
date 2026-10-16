@@ -3,7 +3,7 @@ import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
 import { sendAccountEmail } from '../../lib/accountEmail.js';
-import { hashPassword, MIN_PASSWORD_LENGTH } from '../../lib/password.js';
+import { hashPassword } from '../../lib/password.js';
 import { getSiteContext, requireRole } from '../shared/siteContext.js';
 
 const SITE_ROLES = new Set(['Member', 'Manager', 'Admin']);
