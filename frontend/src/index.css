@@ -25,6 +25,19 @@ body {
   background: #0b1020;
 }
 
+/* ── All dropdown options: ensure high-contrast black text ── */
+select {
+  color-scheme: light;
+}
+
+select option,
+select optgroup,
+option,
+optgroup {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
 .themed {
   background: var(--bg);
   color: var(--fg);
@@ -34,6 +47,7 @@ body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
 }
 
 .muted {
