@@ -114,7 +114,7 @@ export async function createExport(siteId, userId, resource) {
   workbook.created = new Date();
   const worksheet = workbook.addWorksheet('Report', { views: [{ state: 'frozen', ySplit: 1 }] });
   worksheet.columns = headerColumns.map(({ key, label }) => ({ header: label, key, width: Math.min(42, Math.max(14, label.length + 3)) }));
-  rows.forEach((row) => worksheet.addRow(Object.fromEntries(headerColumns.map(({ key }) => [key, row[key] ?? ''])));
+  rows.forEach((row) => worksheet.addRow(Object.fromEntries(headerColumns.map(({ key }) => [key, row[key] ?? '']))));
   worksheet.getRow(1).font = { bold: true };
   worksheet.autoFilter = { from: 'A1', to: `${String.fromCharCode(64 + headerColumns.length)}1` };
   const [site] = await db.select({ slug: sites.slug }).from(sites).where(eq(sites.id, siteId)).limit(1);
