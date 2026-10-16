@@ -3,16 +3,16 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import express from 'express';
-import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
-import { errorHandler } from './middleware/errorHandler.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
+import assignmentsRoutes from './modules/assignments/assignments.routes.js';
+import consumptionRoutes from './modules/consumption/consumption.routes.js';
 
 const app = express();
-const port = Number(process.env.PORT) || 5000;
+const port = Number(process.env.PORT) || 3000;
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: true, credentials: true }));
@@ -30,23 +30,24 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Mounted API routes
-app.use('/api', authRoutes);
-app.use('/api', usersRoutes);
 app.use('/api', analyticsRoutes);
+app.use('/api', inventoryRoutes);
+app.use('/api', assignmentsRoutes);
+app.use('/api', consumptionRoutes);
 
-// Catch 404 for undefined routes
+// Catch 404
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
 // Global error handler
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
 
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(port, () => {
-    console.log(`OpsHub backend listening on port ${port}`);
-  });
-}
+app.listen(port, () => {
+  console.log(`OpsHub backend listening on port ${port}`);
+});
 
 export default app;
