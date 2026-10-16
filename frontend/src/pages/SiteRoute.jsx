@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Navigate, NavLink, useParams } from 'react-router-dom';
+import { NavLink, useParams } from 'react-router-dom';
 import { useDB } from '../lib/db';
 import { useCurrentUser } from '../lib/session';
 import { apiSync, makeApi } from '../lib/api';
@@ -30,8 +30,7 @@ export default function SiteRoute({ preview = false }) {
   const { ctx } = state; const t = ctx.theme; const dark = t.mode === 'dark';
   const style = { '--primary': t.primary, '--accent': t.accent, '--radius': `${t.radius}px`, '--bg': dark ? '#0b1220' : '#f6f7fb', '--card': dark ? '#131c2e' : '#ffffff', '--fg': dark ? '#e5e7eb' : '#0f172a', '--muted': dark ? '#94a3b8' : '#64748b', '--border': dark ? '#243049' : '#e5e7eb', fontFamily: FONTS[t.font] || FONTS.Inter, minHeight: 'calc(100vh - 48px)' };
   const pages = pagesOf(ctx.config);
-  if (!sub && pages.length) return <Navigate to={`${ctx.base}/${pages[0].path}`} replace />;
-  const page = pages.find((p) => p.path === sub);
+  const page = pages.find((p) => p.path === (sub || ''));
   const View = page ? VIEWS[page.type] : null;
   const link = (p) => <NavLink key={p.path} end to={`${ctx.base}/${p.path}`.replace(/\/$/, '')} className={t.layout === 'sidebar' ? 'block px-3 py-2 rounded-lg text-sm' : 'px-3 py-1.5 rounded-full text-sm whitespace-nowrap'} style={({ isActive }) => (isActive ? { background: 'var(--primary)', color: '#fff' } : { color: 'var(--fg)' })}>{p.icon} {p.title}</NavLink>;
   const body = View ? <View ctx={ctx} /> : <div className="p-10 text-center muted">This page is not part of this site’s navigation.</div>;
