@@ -1,32 +1,76 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, NavLink, useParams } from 'react-router-dom';
-import { useDB } from '../lib/db';
-import { useCurrentUser } from '../lib/session';
-import { apiSync, makeApi } from '../lib/api';
+import { useAuth } from '../context/Authcontext';
+import { getSite, getSites, SITES_QUERY_KEY } from '../api/site.api';
+import { useSiteStore } from '../store/site.store';
+import { makeApi } from '../lib/api';
 import { DEFAULT_THEME, pagesOf } from '../lib/registry';
-import { Access, Dashboard, Members } from '../views/Core';
+import { Access, Dashboard } from '../views/Core';
+import SiteMembers from './SiteMembers';
 import { InventoryView } from '../views/Stock';
 import { ApprovalView, AssignmentCards, AssignmentView, ConsumptionView, RequestView, ReturnsView } from '../views/Workflow';
 import { RepairView } from '../views/Repair';
 import { AnalyticsView, ReportsView } from '../views/Insights';
 
-const VIEWS = { shell: Dashboard, auth: Access, users: Members, inventory: InventoryView, request: RequestView, approval: ApprovalView, assignment: AssignmentView, assignmentUi: AssignmentCards, consumption: ConsumptionView, returns: ReturnsView, repair: RepairView, analytics: AnalyticsView, reports: ReportsView };
+const VIEWS = { shell: Dashboard, auth: Access, users: SiteMembers, inventory: InventoryView, request: RequestView, approval: ApprovalView, assignment: AssignmentView, assignmentUi: AssignmentCards, consumption: ConsumptionView, returns: ReturnsView, repair: RepairView, analytics: AnalyticsView, reports: ReportsView };
 const FONTS = { Inter: 'Inter, system-ui, sans-serif', serif: 'Georgia, "Times New Roman", serif', mono: 'ui-monospace, SFMono-Regular, Menlo, monospace' };
 
 export default function SiteRoute({ preview = false }) {
   const { slug, '*': sub } = useParams();
-  const sites = useDB((s) => s.sites); const users = useDB((s) => s.users);
-  const user = useCurrentUser();
-  const site = sites.find((s) => s.slug === slug);
-  const state = useMemo(() => {
-    if (!site) return { error: 'Site not found' };
-    try {
-      const v = apiSync('GET', `/api/sites/${site.id}`, null, { preview });
-      const base = `${preview ? '/preview' : '/s'}/${slug}`;
-      return { ctx: { site: { ...v.site }, config: v.config, role: v.role, theme: { ...DEFAULT_THEME, ...v.config.theme }, preview, user, base, api: makeApi(site.id, preview) } };
-    } catch (e) { return { error: e.message }; }
-  }, [site, users, user, preview, slug]);
+  const { user } = useAuth();
+  const { data: sites = [], isLoading: sitesLoading, error: sitesError } = useQuery({
+    queryKey: SITES_QUERY_KEY,
+    queryFn: getSites,
+  });
+  const activeSite = useSiteStore((state) => state.activeSite);
+  const setActiveSite = useSiteStore((state) => state.setActiveSite);
+  const remoteSite = sites.find((candidate) => candidate.slug === slug);
+  const { data: siteData, isLoading: siteLoading, error: siteError } = useQuery({
+    queryKey: ['site', remoteSite?.id, preview],
+    queryFn: () => getSite(remoteSite.id, preview),
+    enabled: !!remoteSite,
+  });
 
+  const theme = useMemo(() => {
+    const backendTheme = siteData?.config?.theme || remoteSite?.theme || {};
+    return {
+      ...DEFAULT_THEME,
+      ...backendTheme,
+      primary: backendTheme.primary || backendTheme.primaryColor || DEFAULT_THEME.primary,
+      accent: backendTheme.accent || backendTheme.accentColor || backendTheme.primaryColor || DEFAULT_THEME.accent,
+      radius: backendTheme.radius ?? (Number.parseFloat(backendTheme.borderRadius) || DEFAULT_THEME.radius),
+      font: backendTheme.font || backendTheme.fontFamily || DEFAULT_THEME.font,
+    };
+  }, [remoteSite?.theme, siteData?.config?.theme]);
+
+  useEffect(() => {
+    if (remoteSite && siteData) {
+      setActiveSite({ id: remoteSite.id, slug: remoteSite.slug, theme });
+    }
+  }, [remoteSite, setActiveSite, siteData, theme]);
+
+  const state = useMemo(() => {
+    if (!remoteSite) return { error: 'Site not found or you do not have access to it' };
+    if (!siteData) return {};
+    if (preview && siteData.role !== 'Admin') return { error: 'Preview is Admin only' };
+    const base = `${preview ? '/preview' : '/s'}/${slug}`;
+    return {
+      ctx: {
+        site: { ...siteData.site, live: remoteSite.live },
+        config: siteData.config,
+        role: siteData.role,
+        theme: activeSite?.id === remoteSite.id ? activeSite.theme : theme,
+        preview,
+        user,
+        base,
+        api: makeApi(remoteSite.id, preview),
+      },
+    };
+  }, [activeSite, preview, remoteSite, siteData, slug, theme, user]);
+
+  if (sitesLoading || siteLoading) return <div className="p-10 text-foreground">Loading site…</div>;
+  if (sitesError || siteError) return <div role="alert" className="p-10 text-red-400">Could not load site: {(sitesError || siteError).message}</div>;
   if (state.error) return (
     <div className="flex flex-col items-center justify-center text-center" style={{ minHeight: 'calc(100vh - 48px)', background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="text-5xl mb-3">🔒</div>

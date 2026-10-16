@@ -1,20 +1,18 @@
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import { Badge, DataTable, fmt } from '../ui';
-import { useDB } from '../lib/db';
-import { useCurrentUser } from '../lib/session';
-import { apiSync } from '../lib/api';
+import { useAuth } from '../context/Authcontext';
+import { getSites, SITES_QUERY_KEY } from '../api/site.api';
 import { MODULES } from '../lib/registry';
 
-const tryList = (id, r) => { try { return apiSync('GET', `/api/${id}/${r}`); } catch { return null; } };
-
 export default function Hub() {
-  useDB((s) => s.rows); useDB((s) => s.sites);
-  const user = useCurrentUser(); const sites = apiSync('GET', '/api/sites');
-  const stats = sites.map((s) => {
-    const inv = tryList(s.id, 'inventory'); const req = tryList(s.id, 'requests'); const rep = tryList(s.id, 'repairs');
-    return { ...s, items: inv?.length ?? '—', value: inv ? inv.reduce((a, r) => a + (r.total || 0), 0) : null, pending: req ? req.filter((r) => r.status === 'pending').length : '—', repairs: rep ? rep.filter((r) => r.status !== 'completed').length : '—' };
+  const { user } = useAuth();
+  const { data: sites = [], isLoading, error } = useQuery({
+    queryKey: SITES_QUERY_KEY,
+    queryFn: getSites,
   });
+  const stats = sites.map((site) => ({ ...site, items: '—', value: null, pending: '—', repairs: '—' }));
 
   return (
     <div style={{ background: 'var(--background)', minHeight: 'calc(100vh - 48px)', color: 'var(--foreground)' }}>
@@ -32,6 +30,9 @@ export default function Hub() {
           Same code, different products. Open a site, or enter its builder to change what it runs.
         </p>
       </div>
+
+      {isLoading && <div className="px-8 pb-6 text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading your sites…</div>}
+      {error && <div role="alert" className="px-8 pb-6 text-sm text-red-400">Could not load your sites: {error.message}</div>}
 
       {/* Site cards */}
       <div className="px-8 pb-10">
@@ -98,7 +99,7 @@ export default function Hub() {
                   >
                     Open site →
                   </Link>
-                  {user.role === 'Admin' && (
+                  {user?.role === 'Admin' && (
                     <Link
                       to={`/builder/${s.slug}`}
                       className="px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:brightness-110"
@@ -119,8 +120,8 @@ export default function Hub() {
           <div className="grid md:grid-cols-3 gap-3 mb-6">
             {[
               { label: 'Sites', value: sites.length },
-              { label: 'Total stock value', value: fmt(stats.reduce((a, s) => a + (s.value || 0), 0)) },
-              { label: 'Pending requests (all units)', value: stats.reduce((a, s) => a + (typeof s.pending === 'number' ? s.pending : 0), 0) },
+              { label: 'Total stock value', value: stats.some((site) => site.value != null) ? fmt(stats.reduce((a, site) => a + (site.value || 0), 0)) : '—' },
+              { label: 'Pending requests (all units)', value: '—' },
             ].map(({ label, value }) => (
               <div
                 key={label}

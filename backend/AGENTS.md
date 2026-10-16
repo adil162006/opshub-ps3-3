@@ -2,9 +2,9 @@
 
 ## Purpose and source of truth
 
-OpsHub is a multi-site operations application. The frontend is a React/Vite prototype; its current API is simulated in the browser and its data is stored in `frontend/src/lib/db.js`/`localStorage`. It does **not** currently send HTTP requests. There is no frontend API base URL, production wire protocol, or real browser-to-PostgreSQL integration yet.
+OpsHub is a multi-site operations application. The React/Vite frontend now sends HTTP requests to the Express backend for authentication and site configuration. Other module workflows still use the browser-local prototype API and data store; they are not yet integrated with PostgreSQL.
 
-Use `frontend/src/lib/api.js` as the most concrete description of current frontend behavior and expected request/response shapes. Treat its routes below as a compatibility target for replacing the simulator, not as evidence that the routes already exist on the backend. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are less complete than the simulator. Check the relevant UI and simulator code before changing a contract.
+Use the real auth and site route implementations for their current contracts. For remaining module operations, use `frontend/src/lib/api.js` as the expected request/response reference, not as evidence that the browser-local simulator is server-enforced. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
 
 See the root [`AGENTS.md`](../AGENTS.md) for project-wide product constraints and [`features.md`](../features.md) for implementation status and remaining requirements.
 
@@ -14,7 +14,7 @@ See the root [`AGENTS.md`](../AGENTS.md) for project-wide product constraints an
 - Site navigation and views are intended to be driven by published module configuration. Sites are addressed by **site ID** in business API paths; slugs are for frontend navigation.
 - The 13 approved module keys are `auth_rbac`, `user_mgmt`, `inventory`, `dashboard_shell`, `request`, `approval`, `material_assignment`, `assignment_frontend`, `consumption`, `returns`, `pcb_repair`, `analytics`, and `reports_excel`. The registry in `frontend/src/lib/registry.js` defines module configuration, typed connections, presets, and configurable fields. Validate submitted configuration on the server; do not rely on frontend validation.
 - Configurable fields include text, number, select, date, item-reference, and calculated fields. Enforce required fields and valid choices, parse numeric values, recalculate derived values on the server, and verify item references belong to the same site.
-- The browser stores its prototype token as `opshub.token`; the simulated token has `sub`, `role`, `iat`, and `exp` claims and an eight-hour lifetime. Its client-side signature is not secure. Real requests must use server-issued JWTs (normally `Authorization: Bearer <token>`); authenticate and authorize every protected request on the backend. Never trust role claims alone for authorization.
+- Authentication uses a server-issued JWT in the HttpOnly `token` cookie. The frontend sends credentials and does not read or persist the token in browser storage. Protected API requests must be authorized from that cookie on the backend; never trust frontend role state for authorization.
 
 ## Compatibility API
 
@@ -22,8 +22,10 @@ Unless the frontend is updated in the same change, preserve these paths and payl
 
 | Area | Method and path | Expected behavior |
 | --- | --- | --- |
-| Authentication | `POST /api/auth/login` | Accept `{email,password}`; return `{token,user}`; invalid credentials return 401. |
+| Authentication | `POST /api/auth/login` | All account types use this endpoint. Accept `{email,password}`, set the HttpOnly auth cookie, and return public user/site data without the token; invalid credentials return 401. |
+| Global-admin signup | `POST /api/auth/global-admin/signup` | Accept `{name,email,password}` and create an active global administrator; password must be at least 12 characters. Returns public user data without a password hash. |
 | Current user | `GET /api/auth/me` | Return the authenticated public user, without password hashes. |
+| Logout | `POST /api/auth/logout` | Clear the HttpOnly auth cookie. |
 | Sites | `GET /api/sites` | Return accessible site summaries with `id`, `slug`, `name`, `description`, `live`, `role`, `theme`, and `moduleTypes`. |
 | Site detail | `GET /api/sites/:siteId` | Return `{site,role,config}`; Admin may also receive `draft`, `versions`, and `deploys`. |
 | Site creation | `POST /api/sites` | Admin; accept `{name,slug,preset,description?}` and return `{id,slug}`. |
@@ -36,8 +38,8 @@ Unless the frontend is updated in the same change, preserve these paths and payl
 | Consumption | `GET|POST /api/:siteId/consumption` | Create accepts `{assignmentId,qty,note,date?}` and reduces the assignment's remaining quantity. |
 | Returns | `GET|POST /api/:siteId/returns` | Assignment return: `{source:"assignment",refId,qty,condition,reason}`; repair return: `{source:"repair",refId,resolution,reason}`. Good returns restock stock; damaged returns do not. |
 | Repairs | `GET|POST /api/:siteId/repairs`; `PUT|DELETE /api/:siteId/repairs/:id` | Create/update configured repair fields; support the repair lifecycle `diagnosis → repairing → testing → completed`. |
-| Members | `GET /api/:siteId/members`; `PUT /api/:siteId/members/:userId` | Admin manages memberships with `{role}`; an omitted/empty role removes membership. Responses expose public user data and `siteRole`. |
-| Global users | `GET|POST /api/users`; `PATCH /api/users/:id` | Admin only. Create accepts `{name,email,password,role,memberships?}` (`User` or `Admin`); patch supports `name`, `role`, `memberships`, and `password`. Never return password hashes. |
+| Members | `GET|POST /api/:siteId/members`; `PATCH|DELETE /api/:siteId/members/:userId` | Site Admin manages memberships with `{name,email,password?,role}` for adds and `{role}` for updates. New accounts require a password; existing users may be added by email. Delete removes only that site's membership. Responses expose public user data and site `role`. |
+| Global users | `GET|POST /api/users`; `PATCH|DELETE /api/users/:id` | Global Admin only. Create accepts `{name,email,password,role,memberships?}` (`User` or `Admin`); patch supports `name`, `email`, `role`, `memberships`, and `password`. Never return password hashes. |
 | Reports | `GET /api/:siteId/export/:resource` | Return `{columns,rows,filename,role}` for client-side spreadsheet generation. |
 | Inventory import | `POST /api/:siteId/import/inventory` | Manager+; accept `{rows:[...]}`, upsert by SKU, return `{created,updated}`. Reject the entire import if any row is invalid. |
 
@@ -76,7 +78,7 @@ Scope every business read and write to the authenticated user's site membership 
 
 ## Known frontend incompatibilities and gaps
 
-- There is no production HTTP client or API base-URL setting yet. Coordinate API integration with frontend changes that replace/adapt the local simulator and attach the bearer token.
+- The frontend HTTP client and base-URL setting are implemented for authentication and site configuration. Business-module API calls still need to replace/adapt the local simulator and use credentialed cookie requests.
 - The unused `frontend/src/views/Distribution.jsx` submits assignments with `{itemId,qty,assignee}`, while the simulator expects `{requestId,qty,assignee}`; the live site route also does not currently register that view. Do not treat it as the supported assignment contract without reconciling the frontend.
 - Browser-local backup, demo credentials, client-side auth, and frontend isolation tests do not provide production persistence, security, or database tenant isolation.
 - `frontend/docs/schema.sql` is an incomplete draft. The Drizzle schema and migrations must be completed and tested against all required resources and isolation constraints.

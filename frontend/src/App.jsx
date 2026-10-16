@@ -1,8 +1,8 @@
 import { HashRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Toaster } from './ui';
-import { useCurrentUser, useSession } from './lib/session';
-import { apiSync } from './lib/api';
-import { useDB } from './lib/db';
+import { useAuth } from './context/Authcontext';
+import { getSites, SITES_QUERY_KEY } from './api/site.api';
 import Login from './pages/Login';
 import Hub from './pages/Hub';
 import SiteRoute from './pages/SiteRoute';
@@ -13,12 +13,18 @@ import Tests from './pages/Tests';
 import Settings from './pages/Settings';
 
 function Shell({ admin, children }) {
-  const user = useCurrentUser(); const setToken = useSession((s) => s.setToken); const nav = useNavigate();
+  const { user, loading, error: authError, logout } = useAuth(); const nav = useNavigate();
   const { pathname } = useLocation();
-  useDB((s) => s.sites);
+  const { data: sites = [], isLoading: sitesLoading, error: sitesError } = useQuery({
+    queryKey: SITES_QUERY_KEY,
+    queryFn: getSites,
+    enabled: !!user,
+  });
+  const accessibleSites = sites.filter((site) => site.role);
+  if (loading) return <div className="p-10 text-foreground">Loading your session…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (admin && user.role !== 'Admin') return <div className="p-10 text-foreground">Admins only.</div>;
-  const sites = apiSync('GET', '/api/sites'); const cur = pathname.match(/^\/(?:s|preview)\/([^/]+)/)?.[1] || '';
+  const cur = pathname.match(/^\/(?:s|preview)\/([^/]+)/)?.[1] || '';
   const L = (to, t) => (
     <NavLink
       to={to}
@@ -49,8 +55,11 @@ function Shell({ admin, children }) {
           onChange={(e) => { const slug = e.currentTarget.value; if (slug && slug !== cur) nav(`/s/${slug}`); }}
         >
           <option value="">Switch site…</option>
-          {sites.map((s) => <option key={s.id} value={s.slug}>{s.name}</option>)}
+          {accessibleSites.map((site) => (
+            <option key={site.id} value={site.slug}>{site.name} · {site.role}</option>
+          ))}
         </select>
+        {sitesLoading && <span className="text-xs muted">Loading sites…</span>}
         <nav className="flex gap-1">
           {L('/', 'Hub')}
           {L('/catalogue', 'Catalogue')}
@@ -70,12 +79,14 @@ function Shell({ admin, children }) {
           <button
             className="px-2.5 py-1 rounded-md text-sm transition-colors"
             style={{ background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--foreground)' }}
-            onClick={() => { setToken(null); nav('/login'); }}
+            onClick={async () => { if (await logout()) nav('/login'); }}
           >
             Sign out
           </button>
         </div>
       </header>
+      {authError && <div role="alert" className="px-4 py-2 text-sm text-red-400">{authError}</div>}
+      {sitesError && <div role="alert" className="px-4 py-2 text-sm text-red-400">Could not load your sites: {sitesError.message}</div>}
       {children}
     </>
   );

@@ -1,6 +1,6 @@
 # OpsHub — one codebase, many operations sites
 
-Config-driven multi-site prototype: Hub → Builder → API → data. React + Vite + Tailwind + React Router + Zustand + React Flow + Recharts + SheetJS.
+Config-driven multi-site prototype built with React, Vite, Tailwind, React Router, Zustand, React Flow, Recharts, and SheetJS. Login, current-user restoration, permitted-site discovery, and live site themes use the Express backend. The remaining module workflow/data screens still use the browser-local prototype API.
 
 ```bash
 npm install
@@ -9,24 +9,13 @@ npm run test:isolation   # 50 site_id / RBAC / transaction tests (also in-app: T
 npm run build
 ```
 
-The API layer (`src/lib/api.js`) is a simulated REST backend running in the browser (localStorage) with the contract `/api/:siteId/:resource`: JWT, bcrypt, RBAC (Public/Member/Manager/Admin), `site_id` forced on every write, cross-site IDs return 404, transactional stock updates (clone → mutate → commit, rolled back on error). `docs/schema.sql` is the PostgreSQL target (site_id + RLS + same-site composite FKs).
+The module API layer (`src/lib/api.js`) is a simulated REST backend running in the browser (localStorage). The authentication and site APIs use the Express backend and PostgreSQL.
 
-## Demo accounts
-| Email | Password | Access |
-|---|---|---|
-| admin@opshub.io | admin123 | Admin everywhere |
-| manager@opshub.io | manager123 | Manager, all 3 sites |
-| member@opshub.io | member123 | Member, all 3 sites |
-| stores@opshub.io | stores123 | Manager, Central Stores only |
-| tech@opshub.io | tech123 | Manager, Service Centre only |
+## Backend authentication
 
-## Demo script
-1. Sign in as admin → Hub lists Central Stores, Service Centre, Distribution; use the switcher.
-2. Open Service Centre (top-bar, purple, request → approval → repair board) then Central Stores (sidebar, blue, inventory + analytics + Excel).
-3. Builder → Distribution → drag **Return Management**, connect Assignment → Returns → Releases → Publish → open live: Returns page exists, no code change. Roll back from the Releases tab.
-4. Central Stores → Inventory: Export .xlsx; sign in as member to see import disabled.
-5. Distribution → Assignments: tick “simulate crash” → stock unchanged (transaction rollback).
-6. Tests page → Run all. Backup page → download/restore/reset (offline fallback).
+Set `VITE_BACKEND_URL` when the API is not running at `http://localhost:3000`. Configure `AUTH_COOKIE_SAME_SITE` (`lax` by default; use `none` with HTTPS for cross-site deployments) and `CORS_ORIGINS` in the backend. Authentication uses an HttpOnly cookie and credentialed requests; the frontend never stores or reads the auth token. Configure the backend's `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` before running its database seed to create the global administrator. Regular users and their site memberships must be provisioned in the backend; the former browser-only demo credentials are not backend accounts.
+
+After login, the hub and site switcher use the authenticated site's backend membership and role. Switching to a site loads its published configuration and applies its backend theme through the Zustand site store. Builder and module data operations are outside this integration and still depend on the separate browser-local prototype API; they need a follow-up migration before they work with backend accounts.
 
 ## Layout
 `src/lib/registry.js` 13 modules as typed nodes, presets, validation · `api.js` backend · `seed.js` demo data · `isolation.js` tests · `src/views/*` module renderers · `src/pages/*` hub, builder, catalogue.

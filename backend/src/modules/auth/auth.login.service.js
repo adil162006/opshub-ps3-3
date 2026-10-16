@@ -7,8 +7,8 @@ import { generateToken } from '../../lib/jwt.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
-/** Authenticate a regular user account and return the sites available to it. */
-export async function loginUser(email, password) {
+/** Authenticate any account type and return its accessible sites. */
+export async function loginAccount(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
   const [user] = await db.select({
     id: users.id,
@@ -19,32 +19,49 @@ export async function loginUser(email, password) {
     isActive: users.isActive,
   }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
 
-  if (!user || !user.isActive || user.isHubAdmin || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
     throw new AppError(401, INVALID_CREDENTIALS);
   }
 
-  const memberships = await db.select({
-    id: sites.id,
-    slug: sites.slug,
-    name: sites.name,
-    description: sites.description,
-    role: siteMembers.role,
-  }).from(siteMembers)
-    .innerJoin(sites, eq(sites.id, siteMembers.siteId))
-    .where(eq(siteMembers.userId, user.id))
-    .orderBy(asc(sites.name));
+  const memberships = user.isHubAdmin
+    ? await db.select({
+      id: sites.id,
+      slug: sites.slug,
+      name: sites.name,
+      description: sites.description,
+    }).from(sites).orderBy(asc(sites.name))
+    : await db.select({
+      id: sites.id,
+      slug: sites.slug,
+      name: sites.name,
+      description: sites.description,
+      role: siteMembers.role,
+    }).from(siteMembers)
+      .innerJoin(sites, eq(sites.id, siteMembers.siteId))
+      .where(eq(siteMembers.userId, user.id))
+      .orderBy(asc(sites.name));
 
-  if (!memberships.length) throw new AppError(403, 'This account does not belong to any site');
+  if (!user.isHubAdmin && !memberships.length) {
+    throw new AppError(403, 'This account does not belong to any site');
+  }
 
-  const token = generateToken({ sub: user.id, isHubAdmin: false });
+  const token = generateToken({
+    sub: user.id,
+    isHubAdmin: user.isHubAdmin,
+    ...(user.isHubAdmin ? { role: 'Admin' } : {}),
+  });
   return {
     token,
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
-      isHubAdmin: false,
+      isHubAdmin: user.isHubAdmin,
+      ...(user.isHubAdmin ? { role: 'Admin' } : {}),
     },
-    sites: memberships,
+    sites: memberships.map((site) => ({
+      ...site,
+      role: user.isHubAdmin ? 'Admin' : site.role,
+    })),
   };
 }

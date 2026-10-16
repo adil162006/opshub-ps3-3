@@ -1,11 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Badge, DataTable, Page, Stat, fmt, useRows, when } from '../ui';
-import { useDB } from '../lib/db';
-import { useSession } from '../lib/session';
-import { decodeJwt } from '../lib/jwt';
 import { RANK, ROLES, hasModule, pagesOf, resourcesOf } from '../lib/registry';
 import { RES } from '../lib/api';
-import { attempt, toast } from '../ui';
 
 export function Dashboard({ ctx }) {
   const inv = useRows(ctx, 'inventory'); const req = useRows(ctx, 'requests'); const asg = useRows(ctx, 'assignments');
@@ -31,14 +27,13 @@ export function Dashboard({ ctx }) {
 }
 
 export function Access({ ctx }) {
-  const token = useSession((s) => s.token); const claims = decodeJwt(token);
   const letters = (d, role) => ['read', 'create', 'update', 'delete'].map((k) => (RANK[role] >= d[k] ? k[0].toUpperCase() : '·')).join('');
   const resources = resourcesOf(ctx.config);
   return (
     <Page title="Access & RBAC" sub="Authentication module — roles are enforced by the API for every request.">
       <div className="grid md:grid-cols-2 gap-3">
         <div className="card p-4 text-sm space-y-1"><div className="lbl">Session</div><div>User: <b>{ctx.user.name}</b> ({ctx.user.email})</div><div>Role on this site: <Badge v={ctx.role} /></div><div>Global role: <b>{ctx.user.role}</b></div>
-          <div className="lbl pt-2">JWT claims (decoded)</div><pre className="text-xs p-2 rounded overflow-auto" style={{ background: 'rgba(0,0,0,.05)' }}>{JSON.stringify(claims, null, 2)}</pre></div>
+          <div className="lbl pt-2">Session storage</div><div>Authentication is held in a server-issued HttpOnly cookie.</div></div>
         <div className="card p-4 text-sm"><div className="lbl">Role ladder</div>
           <ul className="list-disc ml-5 space-y-1"><li><b>Public</b> — login page only; every /api/:siteId call returns 401.</li><li><b>Member</b> — read, create requests/consumption/returns, export Excel.</li><li><b>Manager</b> — edit inventory, approve, assign, run repairs, import Excel.</li><li><b>Admin</b> — everything + builder, users, delete, preview/publish/rollback.</li></ul></div>
       </div>
@@ -46,18 +41,5 @@ export function Access({ ctx }) {
         {resources.map((r) => <tr key={r}><td className="font-medium">{r}</td><td className="muted">····</td>{ROLES.map((role) => <td key={role} className="font-mono">{letters(RES[r], role)}</td>)}</tr>)}
         <tr><td className="font-medium">excel</td><td className="muted">··</td>{ROLES.map((role) => <td key={role} className="font-mono">{RANK[role] >= 1 ? 'X' : '·'}{RANK[role] >= 2 ? 'I' : '·'}</td>)}</tr>
       </tbody></table><div className="text-xs muted p-3">R=read C=create U=update D=delete · X=export I=import</div></div>
-    </Page>);
-}
-
-export function Members({ ctx }) {
-  useDB((s) => s.users);
-  let members = []; try { members = ctx.api.members(); } catch (e) { toast.err(e.message); }
-  const admin = ctx.role === 'Admin';
-  return (
-    <Page title="Members" sub="Users with access to this site. Global admins appear on every site.">
-      <DataTable rows={members} columns={[{ key: 'name', label: 'Name' }, { key: 'email', label: 'Email' },
-        { label: 'Site role', render: (u) => (u.role === 'Admin' ? <Badge v="Admin" /> : admin ? (
-          <select className="input" style={{ width: 130 }} value={u.siteRole || ''} onChange={(e) => attempt(() => ctx.api.setMember(u.id, e.target.value || null), 'Role updated')}>{ROLES.map((r) => <option key={r}>{r}</option>)}<option value="">Remove</option></select>) : <Badge v={u.siteRole} />) }]} />
-      {!admin && <p className="text-xs muted">Only Admins can change roles. Add people from Hub → Users.</p>}
     </Page>);
 }

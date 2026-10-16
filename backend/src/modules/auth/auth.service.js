@@ -3,37 +3,49 @@ import { sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
-import { generateToken } from '../../lib/jwt.js';
 
-const INVALID_CREDENTIALS = 'Invalid email or password';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Authenticate an existing global administrator and issue a server-signed token. */
-export async function loginGlobalAdmin(email, password) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const [user] = await db.select({
-    id: users.id,
-    name: users.name,
-    email: users.email,
-    passwordHash: users.passwordHash,
-    isHubAdmin: users.isHubAdmin,
-    isActive: users.isActive,
-  }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
+/** Register a global administrator account. */
+export async function signupGlobalAdmin({ name, email, password }) {
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-  if (!user || !user.isActive || !user.isHubAdmin || !(await bcrypt.compare(password, user.passwordHash))) {
-    throw new AppError(401, INVALID_CREDENTIALS);
+  if (!normalizedName || normalizedName.length > 160) {
+    throw new AppError(422, 'name is required and must be at most 160 characters');
+  }
+  if (!EMAIL_PATTERN.test(normalizedEmail) || normalizedEmail.length > 320) {
+    throw new AppError(422, 'A valid email is required');
+  }
+  if (typeof password !== 'string' || password.length < 6) {
+    throw new AppError(422, 'password must be at least 12 characters');
   }
 
-  const token = generateToken({ sub: user.id, role: 'Admin', isHubAdmin: true });
-  return {
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
+  const [existingUser] = await db.select({ id: users.id })
+    .from(users)
+    .where(sql`lower(${users.email}) = ${normalizedEmail}`)
+    .limit(1);
+  if (existingUser) throw new AppError(409, 'Email already registered');
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  try {
+    const [user] = await db.insert(users).values({
+      name: normalizedName,
+      email: normalizedEmail,
+      passwordHash,
       isHubAdmin: true,
-      role: 'Admin',
-    },
-  };
+      isActive: true,
+    }).returning({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      isHubAdmin: users.isHubAdmin,
+    });
+    return { user };
+  } catch (error) {
+    if (error.code === '23505') throw new AppError(409, 'Email already registered');
+    throw error;
+  }
 }
 
 /** Return the authenticated profile and every site the user can access from the hub. */

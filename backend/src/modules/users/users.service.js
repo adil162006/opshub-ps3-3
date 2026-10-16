@@ -48,7 +48,7 @@ export async function manageUser({ actorId, action, scope = 'global', siteId, us
     const context = await getSiteContext(db, siteId, actorId, ['users']);
     requireRole(context.role, 'Admin');
 
-    if (action === 'add') return addSiteUserImpl(siteId, actorId, input, context.role);
+    if (action === 'add') return createSiteUserImpl(siteId, actorId, input);
     const [membership] = await db.select({ userId: siteMembers.userId, role: siteMembers.role })
       .from(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId))).limit(1);
     if (!membership) throw new AppError(404, 'Site user not found');
@@ -171,11 +171,6 @@ async function createGlobalUserImpl(actorId, input) {
 export const createUserByGlobalAdmin = (actorId, input) => manageUser({ actorId, action: 'add', scope: 'global', input });
 export const addSiteUser = (siteId, actorId, input) => manageUser({ actorId, action: 'add', scope: 'site', siteId, input });
 
-async function addSiteUserImpl(siteId, actorId, input, actorRole) {
-  // Existing site-user creation flow is shared by global/site add entry points.
-  return createSiteUserForManager(siteId, actorId, input, actorRole);
-}
-
 export async function listUsersForGlobalAdmin(actorId, query = {}) {
   await requireGlobalAdmin(actorId);
   const page = positiveInteger(query.page, 1);
@@ -220,9 +215,9 @@ export async function listSiteUsers(siteId, actorId) {
   return { siteId, users: rows };
 }
 
-async function createSiteUserForManager(siteId, actorId, input, actorRoleOverride) {
+async function createSiteUserImpl(siteId, actorId, input) {
   const context = await getSiteContext(db, siteId, actorId, ['users']);
-  requireRole(context.role, 'Manager');
+  requireRole(context.role, 'Admin');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
@@ -230,9 +225,6 @@ async function createSiteUserForManager(siteId, actorId, input, actorRoleOverrid
 
   const role = input.role || 'Member';
   if (!SITE_ROLES.has(role)) throw new AppError(422, 'Site role must be Member, Manager or Admin');
-  if ((actorRoleOverride || context.role) === 'Manager' && role !== 'Member') {
-    throw new AppError(403, 'Managers can add users as Member; only site Admins can grant elevated roles');
-  }
   const [site] = await db.select({ id: sites.id, name: sites.name }).from(sites).where(eq(sites.id, siteId)).limit(1);
   if (!site) throw new AppError(404, 'Site not found');
 
