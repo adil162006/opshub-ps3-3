@@ -2,7 +2,7 @@
 
 ## Purpose and source of truth
 
-OpsHub is a multi-site operations application. The React/Vite frontend now sends HTTP requests to the Express backend for authentication and site configuration. Other module workflows still use the browser-local prototype API and data store; they are not yet integrated with PostgreSQL.
+OpsHub is a multi-site operations application. The React/Vite frontend sends HTTP requests to the Express backend for authentication, site configuration, request creation/reads, workflow inventory reads, approvals, assignments, consumption, and analytics. Inventory CRUD, returns, repairs, reports/import/export, and the non-UUID demo path still use the browser-local prototype API and data store.
 
 Use the real auth and site route implementations for their current contracts. For remaining module operations, use `frontend/src/lib/api.js` as the expected request/response reference, not as evidence that the browser-local simulator is server-enforced. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
 
@@ -78,7 +78,7 @@ Scope every business read and write to the authenticated user's site membership 
 
 ## Known frontend incompatibilities and gaps
 
-- The frontend HTTP client and base-URL setting are implemented for authentication and site configuration. Business-module API calls still need to replace/adapt the local simulator and use credentialed cookie requests.
+- The frontend HTTP client and base-URL setting use credentialed cookie requests. TanStack Query connects requests, approvals, assignments, consumption, and analytics for UUID-backed sites; remaining business operations still need to replace/adapt the local simulator.
 - The unused `frontend/src/views/Distribution.jsx` submits assignments with `{itemId,qty,assignee}`, while the simulator expects `{requestId,qty,assignee}`; the live site route also does not currently register that view. Do not treat it as the supported assignment contract without reconciling the frontend.
 - Browser-local backup, demo credentials, client-side auth, and frontend isolation tests do not provide production persistence, security, or database tenant isolation.
 - `frontend/docs/schema.sql` is an incomplete draft. The Drizzle schema and migrations must be completed and tested against all required resources and isolation constraints.

@@ -82,11 +82,22 @@ export function FieldInput({ f, value, onChange, items = [], computed }) {
 }
 export function RecordForm({ fields, initial = {}, items, onSubmit, submitLabel = 'Save', onCancel, resetOnSuccess }) {
   const [v, setV] = useState(initial);
+  const [saving, setSaving] = useState(false);
   const computed = { ...v }; fields.filter((f) => f.type === 'calc').forEach((f) => { computed[f.key] = evalFormula(f.formula, computed); });
+  const submit = async (event) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (await onSubmit(v) && resetOnSuccess) setV(initial);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
-    <form className="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onSubmit={(e) => { e.preventDefault(); if (onSubmit(v) && resetOnSuccess) setV(initial); }}>
+    <form className="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" onSubmit={submit}>
       {fields.map((f) => <div key={f.key}><label className="lbl">{f.label}{f.required && ' *'}</label><FieldInput f={f} value={v[f.key]} items={items} computed={computed[f.key]} onChange={(x) => setV((p) => ({ ...p, [f.key]: x }))} /></div>)}
-      <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3"><button className="btn btn-primary" type="submit">{submitLabel}</button>{onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}</div>
+      <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3"><button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Saving…' : submitLabel}</button>{onCancel && <button type="button" className="btn" onClick={onCancel} disabled={saving}>Cancel</button>}</div>
     </form>);
 }
 

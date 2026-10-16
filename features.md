@@ -2,7 +2,7 @@
 
 ## Summary
 
-The frontend is a feature-rich prototype for the OpsHub problem statement, but it does **not yet meet the full delivery requirements**. Its API, authentication, persistence, workflows, and isolation checks run in the browser against seeded `localStorage` data. They are not backed by a running Express/PostgreSQL service. The backend package and database connection are scaffolding only.
+The frontend combines browser-local prototype modules with server-backed authentication, site configuration, and selected operational workflows. Requests, approvals, assignments, consumption, and analytics use the Express/PostgreSQL API for UUID-backed sites; other business operations and seeded non-UUID demo sites still use browser-local data. The full delivery requirements are not yet met, and the live PostgreSQL path still needs validation.
 
 Status labels:
 
@@ -19,7 +19,7 @@ Status labels:
 - Configurable fields and calculated fields, including examples such as `qty * price`, with validation in the prototype.
 - Draft preview, publish validation, numbered releases, release history, and rollback in browser state.
 - Prototype screens for inventory, requests, approvals, assignments, assignment/field view, consumption, returns, PCB repair, analytics, reports, access, and members.
-- A simulated request → approval → assignment flow with stock decrement and rollback-on-error semantics in the in-memory transaction layer.
+- A browser-local demo request → approval → assignment flow with stock decrement and rollback-on-error semantics in the in-memory transaction layer; UUID-backed sites use the server workflow instead.
 - Recharts dashboards, and browser-based Excel export plus inventory import/upsert with role checks in the simulated API.
 - Seeded demo data, browser-based JSON backup/restore/reset, and a frontend isolation/RBAC test suite.
 
@@ -29,8 +29,8 @@ The frontend README describes the prototype and demo accounts: [frontend/README.
 
 - **Published configuration does not fully drive site navigation.** `SiteRoute.jsx` filters generated pages through a hard-coded per-slug allowlist. Modules enabled in the builder can therefore be missing from the live site's navigation and renderer. This prevents the stated “enable Returns on Distribution, publish, and reload” demo from being reliably satisfied.
 - **Admin navigation is hidden.** The shell currently exposes only the Hub link; Builder, Users, Catalogue, Tests, and Backup routes are not linked in the visible navigation.
-- **The API and identity flow are simulated.** Requests are handled synchronously in browser code and data is stored in `localStorage`; JWT signing/verification and bcrypt demo hashes in the frontend are not a substitute for server-side authentication or authorization.
-- **Browser-local data is not shared or durable across users/devices.** There is no server-backed site provisioning, shared database, or deployment service.
+- **Business API integration is partial.** Authentication, site configuration, request creation/reads, inventory reads for workflows, approvals, assignments, consumption, and analytics use the server API. Inventory CRUD, returns, repairs, reports/import/export, and the non-UUID demo path still use the browser simulator.
+- **Browser-local data is not shared or durable across users/devices.** Operations that remain on the simulator are not shared across users or devices.
 - **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security, ORM scoping, and cross-site database references remain unverified.
 - **The current schema target is incomplete.** `frontend/docs/schema.sql` defines only a subset of the data model and enables row-level security only for inventory. It does not yet define and secure every business table required by the feature set.
 - **Proposal documentation is incomplete.** The in-app catalogue gives an architecture overview, module list, API outline, and abbreviated schema, but the requested complete architecture diagram, data model/API design, and project README still need to be delivered and aligned with the real backend.
@@ -38,7 +38,7 @@ The frontend README describes the prototype and demo accounts: [frontend/README.
 
 ## Backend: implementation in progress
 
-The backend now has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for the operational workflows. It has not yet been validated against a running PostgreSQL instance, and it is not wired to the frontend's default browser-local API.
+The backend now has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for the operational workflows. The frontend uses the backend for authentication, site configuration, and selected workflows, but the remaining business modules still use the browser-local simulator. The live PostgreSQL path has not yet been validated.
 
 - [x] Implement Express startup, environment loading, configurable CORS origins, liveness/readiness endpoints, centralized errors, and graceful database shutdown.
 - [x] Define Drizzle tables and migrations for users, sites, site memberships, versions/deploy history, inventory, requests, approvals, assignments, consumption, returns, repairs, reports jobs, and audit data.
@@ -51,7 +51,7 @@ The backend now has an Express service, Drizzle schema/migrations, server-issued
 - [x] Implement role-restricted spreadsheet export and atomic inventory import paths.
 - [x] Provide backend environment example, setup documentation, repeatable migrations, and initial site configuration seeding.
 - [ ] Enforce tenant isolation in PostgreSQL with row-level security on every business table. API-level site scoping and same-site foreign keys are present, but database RLS policies are not yet installed.
-- [ ] Connect the frontend to the real HTTP API and PostgreSQL-backed authentication/data; deployed behavior still relies on the browser simulator.
+- [ ] Complete frontend integration with the real HTTP API and PostgreSQL-backed data. Requests, approvals, assignments, consumption, and analytics are wired for UUID-backed sites; other business modules and the demo path still rely on the browser simulator.
 - [ ] Add backend unit/integration tests for authentication, permissions, endpoint coverage, transaction rollback/concurrency, and cross-site isolation against PostgreSQL. The backend `test` script remains a placeholder.
 - [ ] Verify the migrations and seed against a real PostgreSQL instance and complete the browser-to-API-to-database demo.
 

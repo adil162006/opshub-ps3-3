@@ -5,20 +5,55 @@ import { RANK, fieldsOf, hasModule, itemKey, stepsOf } from '../lib/registry';
 import { approvalsQueryKey, decideApproval, getApprovals } from '../api/approvals.api';
 import { assignmentsQueryKey, createAssignment, getAssignments } from '../api/assignments.api';
 import { consumptionQueryKey, getConsumption, recordConsumption } from '../api/consumption.api';
+import { getInventory, inventoryQueryKey } from '../api/inventory.api';
+import { createRequest, getRequests, requestsQueryKey } from '../api/requests.api';
 import { isUuid } from '../utils/uuid';
 
 const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
+function QueryStatus({ queries, loadingMessage }) {
+  const error = queries.find((query) => query.error)?.error;
+  if (error) return <div role="alert" className="text-sm text-red-400">Could not load data: {errorMessage(error)}</div>;
+  if (queries.some((query) => query.isLoading)) return <div className="text-sm muted">{loadingMessage}</div>;
+  return null;
+}
 
 const summary = (fields, r, items) => fields.filter((f) => f.type !== 'calc' && r[f.key] !== '' && r[f.key] != null).map((f) => `${f.label}: ${fieldText(f, r, items)}`).join(' · ');
 
 export function RequestView({ ctx }) {
-  const fields = fieldsOf(ctx.config, 'request'); const items = useRows(ctx, 'inventory'); const rows = useRows(ctx, 'requests');
+  const siteId = ctx.site?.id;
+  const serverBacked = isUuid(siteId);
+  const queryClient = useQueryClient();
+  const requestsQuery = useQuery({ queryKey: requestsQueryKey(siteId), queryFn: () => getRequests(siteId), enabled: serverBacked });
+  const inventoryQuery = useQuery({ queryKey: inventoryQueryKey(siteId), queryFn: () => getInventory(siteId), enabled: serverBacked && hasModule(ctx.config, 'inventory') });
+  const createMutation = useMutation({
+    mutationFn: (payload) => createRequest(siteId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: requestsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
+      toast.ok('Request submitted');
+    },
+    onError: (error) => toast.err(errorMessage(error)),
+  });
+  const localItems = useRows(ctx, 'inventory'); const localRequests = useRows(ctx, 'requests');
+  const fields = fieldsOf(ctx.config, 'request');
+  const items = serverBacked ? inventoryQuery.data ?? [] : localItems;
+  const rows = serverBacked ? requestsQuery.data ?? [] : localRequests;
   const [open, setOpen] = useState(false); const [st, setSt] = useState('');
   const shown = rows.filter((r) => !st || r.status === st).reverse();
   const steps = stepsOf(ctx.config);
+  const submitRequest = async (values) => {
+    if (!serverBacked) return attempt(() => ctx.api.post('requests', values), 'Request submitted');
+    try {
+      await createMutation.mutateAsync(values);
+      return true;
+    } catch {
+      return false;
+    }
+  };
   return (
     <Page title="Requests" sub={steps.length ? `Approval chain: ${steps.join(' → ')}` : 'No approval module connected'} actions={<button className="btn btn-primary" onClick={() => setOpen(!open)}>+ New request</button>}>
-      {open && <RecordForm fields={fields} items={items} submitLabel="Submit request" resetOnSuccess onSubmit={(v) => attempt(() => ctx.api.post('requests', v), 'Request submitted')} onCancel={() => setOpen(false)} />}
+      {serverBacked && <QueryStatus queries={[requestsQuery, inventoryQuery]} loadingMessage="Loading requests and inventory…" />}
+      {open && <RecordForm fields={fields} items={items} submitLabel="Submit request" resetOnSuccess onSubmit={submitRequest} onCancel={() => setOpen(false)} />}
       <select className="input" style={{ maxWidth: 200 }} value={st} onChange={(e) => setSt(e.target.value)}><option value="">All statuses</option>{['pending', 'approved', 'rejected', 'assigned', 'in-repair', 'closed'].map((s) => <option key={s}>{s}</option>)}</select>
       <DataTable rows={shown} columns={[{ key: 'requestNo', label: 'No' }, ...fields.filter((f) => f.type !== 'calc').map((f) => ({ label: f.label, render: (r) => fieldText(f, r, items) })),
         { label: 'Status', render: (r) => <><Badge v={r.status} />{r.status === 'pending' && steps.length > 1 && <span className="text-xs muted ml-2">step {r.step + 1}/{steps.length}</span>}</> }, { key: 'requestedBy', label: 'By' }]} />
@@ -27,23 +62,30 @@ export function RequestView({ ctx }) {
 
 export function ApprovalView({ ctx }) {
   const siteId = ctx.site?.id;
+  const serverBacked = isUuid(siteId);
   const queryClient = useQueryClient();
   const approvalsQuery = useQuery({
     queryKey: approvalsQueryKey(siteId),
     queryFn: () => getApprovals(siteId),
     enabled: isUuid(siteId),
   });
+  const requestsQuery = useQuery({ queryKey: requestsQueryKey(siteId), queryFn: () => getRequests(siteId), enabled: serverBacked });
+  const inventoryQuery = useQuery({ queryKey: inventoryQueryKey(siteId), queryFn: () => getInventory(siteId), enabled: serverBacked && hasModule(ctx.config, 'inventory') });
   const decideMutation = useMutation({
     mutationFn: (payload) => decideApproval(siteId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: approvalsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: requestsQueryKey(siteId) });
       queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
       toast.ok('Decision recorded');
     },
     onError: (err) => toast.err(errorMessage(err)),
   });
 
-  const fields = fieldsOf(ctx.config, 'request'); const items = useRows(ctx, 'inventory'); const reqs = useRows(ctx, 'requests'); const apps = useRows(ctx, 'approvals');
+  const fields = fieldsOf(ctx.config, 'request'); const localItems = useRows(ctx, 'inventory'); const localRequests = useRows(ctx, 'requests'); const localApprovals = useRows(ctx, 'approvals');
+  const items = serverBacked ? inventoryQuery.data ?? [] : localItems;
+  const reqs = serverBacked ? requestsQuery.data ?? [] : localRequests;
+  const apps = serverBacked ? approvalsQuery.data ?? [] : localApprovals;
   const steps = stepsOf(ctx.config); const [c, setC] = useState({});
   const pending = reqs.filter((r) => r.status === 'pending');
 
@@ -59,10 +101,11 @@ export function ApprovalView({ ctx }) {
     }
   };
 
-  const logList = (isUuid(siteId) && approvalsQuery.data) ? approvalsQuery.data : apps;
+  const logList = apps;
 
   return (
     <Page title="Approvals" sub={`Chain: ${steps.map((s, i) => `${i + 1}. ${s}`).join(' → ')}`}>
+      {serverBacked && <QueryStatus queries={[approvalsQuery, requestsQuery, inventoryQuery]} loadingMessage="Loading approvals and requests…" />}
       {pending.length === 0 && <div className="card p-6 muted text-center">No requests awaiting approval 🎉</div>}
       <div className="grid md:grid-cols-2 gap-3">{pending.map((r) => {
         const need = steps[r.step]; const can = RANK[ctx.role] >= RANK[need];
@@ -81,23 +124,31 @@ export function ApprovalView({ ctx }) {
 
 export function AssignmentView({ ctx }) {
   const siteId = ctx.site?.id;
+  const serverBacked = isUuid(siteId);
   const queryClient = useQueryClient();
   const assignmentsQuery = useQuery({
     queryKey: assignmentsQueryKey(siteId),
     queryFn: () => getAssignments(siteId),
     enabled: isUuid(siteId),
   });
+  const requestsQuery = useQuery({ queryKey: requestsQueryKey(siteId), queryFn: () => getRequests(siteId), enabled: serverBacked });
+  const inventoryQuery = useQuery({ queryKey: inventoryQueryKey(siteId), queryFn: () => getInventory(siteId), enabled: serverBacked && hasModule(ctx.config, 'inventory') });
   const createMutation = useMutation({
     mutationFn: (payload) => createAssignment(siteId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: assignmentsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: requestsQueryKey(siteId) });
+      queryClient.invalidateQueries({ queryKey: inventoryQueryKey(siteId) });
       queryClient.invalidateQueries({ queryKey: ['analytics', siteId] });
       toast.ok('Assigned — stock decremented');
     },
     onError: (err) => toast.err(errorMessage(err)),
   });
 
-  const reqs = useRows(ctx, 'requests'); const items = useRows(ctx, 'inventory'); const asg = useRows(ctx, 'assignments');
+  const localRequests = useRows(ctx, 'requests'); const localItems = useRows(ctx, 'inventory'); const localAssignments = useRows(ctx, 'assignments');
+  const reqs = serverBacked ? requestsQuery.data ?? [] : localRequests;
+  const items = serverBacked ? inventoryQuery.data ?? [] : localItems;
+  const asg = serverBacked ? assignmentsQuery.data ?? [] : localAssignments;
   const key = itemKey(ctx.config); const fields = fieldsOf(ctx.config, 'request');
   const [f, setF] = useState({}); const [crash, setCrash] = useState(false);
   const ready = reqs.filter((r) => r.status === 'approved'); const canAssign = RANK[ctx.role] >= 2;
@@ -118,11 +169,12 @@ export function AssignmentView({ ctx }) {
     }
   };
 
-  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+  const assignmentList = asg;
 
   return (
     <Page title="Material Assignment" sub="Approved requests → issue stock. Stock decrement + request status + assignment row commit in one transaction.">
-      {ctx.role === 'Admin' && <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={crash} onChange={(e) => setCrash(e.target.checked)} /> Simulate crash after stock decrement (demo: verify rollback)</label>}
+      {serverBacked && <QueryStatus queries={[assignmentsQuery, requestsQuery, inventoryQuery]} loadingMessage="Loading assignments and approved requests…" />}
+      {!serverBacked && ctx.role === 'Admin' && <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={crash} onChange={(e) => setCrash(e.target.checked)} /> Simulate crash after stock decrement (demo: verify rollback)</label>}
       {ready.length === 0 && <div className="card p-6 muted text-center">No approved requests waiting for assignment.</div>}
       <div className="grid md:grid-cols-2 gap-3">{ready.map((r) => {
         const item = items.find((i) => i.id === r[key]); const qty = f[r.id]?.qty ?? r.qty; const short = item && qty > item.qty;
@@ -133,7 +185,7 @@ export function AssignmentView({ ctx }) {
           <div className={`text-sm ${short ? 'text-red-600 font-semibold' : 'muted'}`}>Available: {item ? fmt(item.qty) : '—'} {short && '· insufficient'}</div>
           <div className="grid grid-cols-2 gap-2"><div><label className="lbl">Qty</label><input className="input" type="number" min="1" value={qty} onChange={(e) => setF({ ...f, [r.id]: { ...f[r.id], qty: e.target.value } })} /></div>
             <div><label className="lbl">Assign to</label><input className="input" value={assignee} onChange={(e) => setF({ ...f, [r.id]: { ...f[r.id], assignee: e.target.value } })} /></div></div>
-          <button className="btn btn-primary" disabled={!canAssign} onClick={() => onAssign(r, qty, assignee)}>Assign & decrement stock</button>
+          <button className="btn btn-primary" disabled={!canAssign || createMutation.isPending} onClick={() => onAssign(r, qty, assignee)}>{createMutation.isPending ? 'Assigning…' : 'Assign & decrement stock'}</button>
         </div>);
       })}</div>
       <h2 className="font-semibold">Assignments</h2>
@@ -143,18 +195,20 @@ export function AssignmentView({ ctx }) {
 
 export function AssignmentCards({ ctx }) {
   const siteId = ctx.site?.id;
+  const serverBacked = isUuid(siteId);
   const assignmentsQuery = useQuery({
     queryKey: assignmentsQueryKey(siteId),
     queryFn: () => getAssignments(siteId),
     enabled: isUuid(siteId),
   });
-  const asg = useRows(ctx, 'assignments');
-  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
+  const localAssignments = useRows(ctx, 'assignments');
+  const assignmentList = serverBacked ? assignmentsQuery.data ?? [] : localAssignments;
   const [who, setWho] = useState('');
   const people = [...new Set(assignmentList.map((a) => a.assignee))];
 
   return (
     <Page title="Field View" sub="What each team has in hand and how much is left.">
+      {serverBacked && <QueryStatus queries={[assignmentsQuery]} loadingMessage="Loading assignments…" />}
       <select className="input" style={{ maxWidth: 240 }} value={who} onChange={(e) => setWho(e.target.value)}><option value="">All teams</option>{people.map((p) => <option key={p}>{p}</option>)}</select>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{assignmentList.filter((a) => !who || a.assignee === who).map((a) => {
         const used = a.qty - a.remaining;
@@ -168,6 +222,7 @@ export function AssignmentCards({ ctx }) {
 
 export function ConsumptionView({ ctx }) {
   const siteId = ctx.site?.id;
+  const serverBacked = isUuid(siteId);
   const queryClient = useQueryClient();
   const assignmentsQuery = useQuery({
     queryKey: assignmentsQueryKey(siteId),
@@ -191,9 +246,9 @@ export function ConsumptionView({ ctx }) {
     onError: (err) => toast.err(errorMessage(err)),
   });
 
-  const asg = useRows(ctx, 'assignments'); const log = useRows(ctx, 'consumption');
-  const assignmentList = (isUuid(siteId) && assignmentsQuery.data) ? assignmentsQuery.data : asg;
-  const consumptionList = (isUuid(siteId) && consumptionQuery.data) ? consumptionQuery.data : log;
+  const localAssignments = useRows(ctx, 'assignments'); const localConsumption = useRows(ctx, 'consumption');
+  const assignmentList = serverBacked ? assignmentsQuery.data ?? [] : localAssignments;
+  const consumptionList = serverBacked ? consumptionQuery.data ?? [] : localConsumption;
 
   const [f, setF] = useState({ assignmentId: '', qty: '', note: '' });
   const open = assignmentList.filter((a) => a.remaining > 0);
@@ -221,11 +276,12 @@ export function ConsumptionView({ ctx }) {
 
   return (
     <Page title="Consumption Tracking" sub="Log material used in the field against an assignment.">
+      {serverBacked && <QueryStatus queries={[assignmentsQuery, consumptionQuery]} loadingMessage="Loading assignments and consumption…" />}
       <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={onSubmit}>
         <div className="sm:col-span-2"><label className="lbl">Assignment</label><select className="input" value={f.assignmentId} onChange={(e) => setF({ ...f, assignmentId: e.target.value })}><option value="">Select…</option>{open.map((a) => <option key={a.assignmentItemId || a.id} value={a.assignmentItemId || a.id}>{a.requestNo} · {a.itemName} · {a.assignee} ({a.remaining} left)</option>)}</select></div>
         <div><label className="lbl">Qty used{sel && ` (max ${sel.remaining})`}</label><input className="input" type="number" min="1" value={f.qty} onChange={(e) => setF({ ...f, qty: e.target.value })} /></div>
         <div><label className="lbl">Note</label><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
-        <div className="sm:col-span-4"><button className="btn btn-primary">Log consumption</button></div>
+        <div className="sm:col-span-4"><button className="btn btn-primary" disabled={recordMutation.isPending}>{recordMutation.isPending ? 'Saving…' : 'Log consumption'}</button></div>
       </form>
       <DataTable rows={[...consumptionList].reverse()} columns={[{ key: 'date', label: 'Date' }, { key: 'itemName', label: 'Item' }, { key: 'qty', label: 'Qty' }, { key: 'note', label: 'Note' }, { key: 'by', label: 'By' }]} />
     </Page>);
