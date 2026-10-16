@@ -29,8 +29,8 @@ Unless the frontend is updated in the same change, preserve these paths and payl
 | Sites | `GET /api/sites` | Return accessible site summaries with `id`, `slug`, `name`, `description`, `live`, `role`, `theme`, and `moduleTypes`. |
 | Site detail | `GET /api/sites/:siteId` | Return `{site,role,config}`; Admin may also receive `draft`, `versions`, and `deploys`. |
 | Site creation | `POST /api/sites` | Admin; accept `{name,slug,preset,description?}` and return `{id,slug}`. |
-| Builder draft | `PUT /api/sites/:siteId/draft` | Admin; accept `{draft:{nodes,edges,theme}}`; return `{saved:true}`. |
-| Publish / rollback | `POST /api/sites/:siteId/publish`; `POST /api/sites/:siteId/rollback` | Admin; publish accepts `{note}`, rollback accepts `{version}`; return the resulting `{version}`. |
+| Builder draft | `PUT /api/sites/:siteId/draft` | Site Admin; accept `{draft:{nodes,edges,theme}}`, including incomplete drafts while editing; return `{saved:true}`. |
+| Publish / rollback | `POST /api/sites/:siteId/publish`; `POST /api/sites/:siteId/rollback` | Site Admin; publishing validates the complete configuration and accepts `{note}`; rollback accepts `{version}`; return the resulting `{version}`. |
 | Inventory | `GET|POST /api/:siteId/inventory`; `PUT|DELETE /api/:siteId/inventory/:id` | Site-scoped inventory CRUD. Create/update accept configured fields; delete returns `{deleted:id}`. |
 | Requests | `GET|POST /api/:siteId/requests` | Site-scoped list/create. Creation returns a row including generated `id`, `site_id`, `createdAt`, `requestNo`, `status`, `step`, and `requestedBy`. |
 | Approvals | `GET|POST /api/:siteId/approvals` | Create accepts `{requestId,decision,comment}` where decision is `approve` or `reject`; update request workflow state atomically. |

@@ -55,7 +55,7 @@ export default function SiteMembers({ ctx }) {
   const members = membersQuery.data?.users || [];
 
   return (
-    <Page title="Members" sub="Manage accounts and their role in this site. Changes here do not affect access to other sites.">
+    <Page title="Members" sub="Manage this site's members and roles. New accounts get access only to this site; existing accounts keep their other site memberships.">
       {isSiteAdmin && (
         <form
           className="card p-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end"

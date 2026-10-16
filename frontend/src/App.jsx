@@ -103,8 +103,8 @@ export default function App() {
         <Route path="/" element={<Shell><Hub /></Shell>} />
         <Route path="/s/:slug/*" element={<SiteShell />} />
         <Route path="/preview/:slug/*" element={<Shell admin><PreviewKeyed /></Shell>} />
-        <Route path="/builder" element={<Shell admin><BuilderIndex /></Shell>} />
-        <Route path="/builder/:slug" element={<Shell admin><BuilderEditor /></Shell>} />
+        <Route path="/builder" element={<Shell><BuilderIndex /></Shell>} />
+        <Route path="/builder/:slug" element={<Shell><BuilderEditor /></Shell>} />
         <Route path="/users" element={<Shell admin><Users /></Shell>} />
         <Route path="/catalogue" element={<Shell><Catalogue /></Shell>} />
         <Route path="/tests" element={<Shell admin><Tests /></Shell>} />
