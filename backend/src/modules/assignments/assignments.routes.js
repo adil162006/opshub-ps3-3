@@ -9,9 +9,11 @@ import {
 
 const router = Router();
 
-router.get('/sites/:siteId/assignments', requireAuth, listAssignmentsHandler);
-router.get('/sites/:siteId/assignments/:id', requireAuth, getAssignmentHandler);
-router.post('/sites/:siteId/assignments', requireAuth, createAssignmentHandler);
-router.put('/sites/:siteId/assignments/:id', requireAuth, updateAssignmentHandler);
+for (const prefix of ['/:siteId', '/sites/:siteId']) {
+  router.get(`${prefix}/assignments`, requireAuth, listAssignmentsHandler);
+  router.get(`${prefix}/assignments/:id`, requireAuth, getAssignmentHandler);
+  router.post(`${prefix}/assignments`, requireAuth, createAssignmentHandler);
+  router.put(`${prefix}/assignments/:id`, requireAuth, updateAssignmentHandler);
+}
 
 export default router;

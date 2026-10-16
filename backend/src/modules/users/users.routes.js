@@ -14,8 +14,8 @@ import {
 const router = Router();
 
 router.route('/users').get(requireAuth, getUsers).post(requireAuth, postUser);
-router.route('/users/:userId').put(requireAuth, putUser).delete(requireAuth, deleteUser);
+router.route('/users/:userId').put(requireAuth, putUser).patch(requireAuth, putUser).delete(requireAuth, deleteUser);
 router.route('/:siteId/members').get(requireAuth, getSiteUsers).post(requireAuth, postSiteUser);
-router.route('/:siteId/members/:userId').put(requireAuth, putSiteUser).delete(requireAuth, deleteSiteUser);
+router.route('/:siteId/members/:userId').put(requireAuth, putSiteUser).patch(requireAuth, putSiteUser).delete(requireAuth, deleteSiteUser);
 
 export default router;

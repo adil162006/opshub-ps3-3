@@ -1,61 +1,76 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { approvals, requests, users } from '../../db/schema/index.js';
-import { AppError } from '../../lib/AppError.js';
-import { configNode, getSiteContext, requireRole } from '../shared/siteContext.js';
+import { ApiError } from '../../lib/ApiError.js';
+import { approvalSteps, getSiteContext, requireRole, roleRank } from '../shared/workflow.js';
 
-const ranks = { Member: 1, Manager: 2, Admin: 3 };
-const getSteps = (config) => configNode(config, 'approval')?.data?.config?.steps ?? ['Manager'];
-
-export async function listApprovals(siteId, userId) {
-  const context = await getSiteContext(db, siteId, userId, ['request', 'approval']);
-  requireRole(context.role, 'Member');
+export async function listApprovalHistory(siteId, actorId) {
+  await getSiteContext(db, siteId, actorId, ['approval']);
   const rows = await db.select({
-    id: approvals.id, site_id: approvals.siteId, requestId: approvals.requestId, requestNo: requests.requestNumber,
-    step: approvals.step, role: approvals.requiredRole, decision: approvals.decision,
-    comment: approvals.comment, by: users.name, at: approvals.decidedAt,
+    id: approvals.id,
+    site_id: approvals.siteId,
+    requestId: approvals.requestId,
+    requestNo: requests.requestNumber,
+    step: approvals.step,
+    role: approvals.requiredRole,
+    decision: approvals.decision,
+    comment: approvals.comment,
+    by: users.name,
+    at: approvals.decidedAt,
     createdAt: approvals.createdAt,
-  }).from(approvals).innerJoin(requests, and(eq(requests.id, approvals.requestId), eq(requests.siteId, approvals.siteId)))
-    .leftJoin(users, eq(users.id, approvals.decidedBy)).where(eq(approvals.siteId, siteId)).orderBy(asc(approvals.createdAt));
-  return rows;
+  }).from(approvals)
+    .innerJoin(requests, and(eq(requests.siteId, approvals.siteId), eq(requests.id, approvals.requestId)))
+    .leftJoin(users, eq(users.id, approvals.decidedBy))
+    .where(and(eq(approvals.siteId, siteId), ne(approvals.decision, 'pending')))
+    .orderBy(asc(approvals.createdAt));
+  return rows.map((row) => ({ ...row, by: row.by || '' }));
 }
 
-export async function decideApproval(siteId, userId, body) {
-  if (!body.requestId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId)) {
-    throw new AppError(422, 'requestId must be a valid UUID');
-  }
-  if (!['approve', 'reject'].includes(body.decision)) throw new AppError(422, 'decision must be approve or reject');
+export async function decideRequest(siteId, actorId, body) {
+  const { config, role } = await getSiteContext(db, siteId, actorId, ['approval']);
+  requireRole(role, 'Manager');
+  const { requestId, decision } = body;
+  if (!requestId) throw new ApiError(422, 'requestId is required');
+  if (!['approve', 'reject'].includes(decision)) throw new ApiError(422, 'decision must be approve or reject');
+
   return db.transaction(async (tx) => {
-    const context = await getSiteContext(tx, siteId, userId, ['request', 'approval']);
-    requireRole(context.role, 'Manager');
-    const [request] = await tx.select({
-      id: requests.id, requestNumber: requests.requestNumber, status: requests.status,
-      currentStep: requests.currentStep,
-    }).from(requests).where(and(eq(requests.siteId, siteId), eq(requests.id, body.requestId))).for('update').limit(1);
-    if (!request) throw new AppError(404, 'Request not found');
-    if (request.status !== 'pending') throw new AppError(409, `${request.requestNumber} is ${request.status}, not pending`);
-
-    const steps = getSteps(context.config);
+    const [request] = await tx.select().from(requests)
+      .where(and(eq(requests.siteId, siteId), eq(requests.id, requestId))).for('update').limit(1);
+    if (!request) throw new ApiError(404, 'Request not found');
+    if (request.status !== 'pending') throw new ApiError(409, `${request.requestNumber} is ${request.status}, not pending`);
+    const steps = approvalSteps(config);
     const requiredRole = steps[request.currentStep];
-    if (!requiredRole || !Object.hasOwn(ranks, requiredRole)) throw new AppError(422, 'Approval step configuration is invalid');
-    if (ranks[context.role] < ranks[requiredRole]) {
-      throw new AppError(403, `Step ${request.currentStep + 1} needs ${requiredRole} (you are ${context.role})`);
-    }
+    if (!requiredRole) throw new ApiError(409, 'Approval chain is already complete');
+    if (roleRank(role) < roleRank(requiredRole)) throw new ApiError(403, `Step ${request.currentStep + 1} requires ${requiredRole}`);
 
-    const decidedAt = new Date();
-    const [approval] = await tx.insert(approvals).values({
-      siteId, requestId: request.id, step: request.currentStep, requiredRole,
-      decision: body.decision, comment: String(body.comment || ''), decidedBy: userId, decidedAt,
+    const [row] = await tx.insert(approvals).values({
+      siteId,
+      requestId,
+      step: request.currentStep,
+      requiredRole,
+      decision,
+      decidedBy: actorId,
+      comment: typeof body.comment === 'string' ? body.comment.trim() : null,
+      decidedAt: new Date(),
     }).returning();
-    const nextStep = body.decision === 'approve' ? request.currentStep + 1 : request.currentStep;
-    const status = body.decision === 'reject' ? 'rejected' : nextStep >= steps.length ? 'approved' : 'pending';
-    await tx.update(requests).set({ currentStep: nextStep, status, updatedAt: decidedAt })
-      .where(and(eq(requests.siteId, siteId), eq(requests.id, request.id)));
+    const nextStep = request.currentStep + 1;
+    await tx.update(requests).set({
+      status: decision === 'reject' ? 'rejected' : nextStep >= steps.length ? 'approved' : 'pending',
+      currentStep: nextStep,
+      updatedAt: new Date(),
+    }).where(and(eq(requests.siteId, siteId), eq(requests.id, requestId)));
+    const [user] = await tx.select({ name: users.name }).from(users).where(eq(users.id, actorId)).limit(1);
     return {
-      id: approval.id, requestId: request.id, requestNo: request.requestNumber,
-      step: approval.step, role: approval.requiredRole, decision: approval.decision,
-      comment: approval.comment, by: context.actor.name, at: approval.decidedAt,
-      site_id: siteId, createdAt: approval.createdAt,
+      id: row.id,
+      site_id: siteId,
+      requestId,
+      requestNo: request.requestNumber,
+      step: row.step,
+      role: row.requiredRole,
+      decision: row.decision,
+      comment: row.comment || '',
+      by: user?.name || '',
+      at: row.decidedAt,
     };
   });
 }

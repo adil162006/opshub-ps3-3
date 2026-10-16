@@ -46,13 +46,17 @@ export async function manageUser({ actorId, action, scope = 'global', siteId, us
 
   if (scope === 'site') {
     const context = await getSiteContext(db, siteId, actorId, ['users']);
-    requireRole(context.role, action === 'add' ? 'Manager' : 'Admin');
+    requireRole(context.role, 'Admin');
 
-    if (action === 'add') return addSiteUserImpl(siteId, actorId, input, context.role);
+    if (action === 'add') return createSiteUserImpl(siteId, actorId, input);
     const [membership] = await db.select({ userId: siteMembers.userId, role: siteMembers.role })
       .from(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId))).limit(1);
     if (!membership) throw new AppError(404, 'Site user not found');
     if (membership.role === 'Admin' && context.role !== 'Admin') throw new AppError(403, 'Only a site Admin can manage another Admin');
+    if (action === 'update' && (input.role === undefined || input.role === null || input.role === '')) {
+      await db.delete(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId)));
+      return { userId, siteId, removed: true };
+    }
     if (action === 'delete') {
       await db.delete(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId)));
       return { userId, siteId, removed: true };
@@ -85,11 +89,32 @@ export async function manageUser({ actorId, action, scope = 'global', siteId, us
     if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
     updates.email = email;
   }
-  if (!Object.keys(updates).length) throw new AppError(422, 'Provide name or email to update');
+  if (input.password !== undefined) {
+    if (typeof input.password !== 'string' || input.password.length < 12) throw new AppError(422, 'password must be at least 12 characters');
+    updates.passwordHash = await bcrypt.hash(input.password, 12);
+  }
+  if (input.role !== undefined) {
+    if (!['User', 'Admin'].includes(input.role)) throw new AppError(422, 'role must be User or Admin');
+    updates.isHubAdmin = input.role === 'Admin';
+  }
+  const replaceMemberships = input.memberships !== undefined;
+  const memberships = replaceMemberships ? normalizeMemberships(input.memberships) : null;
+  if (updates.isHubAdmin && memberships?.length) throw new AppError(422, 'Global administrators do not use site memberships');
+  if (!Object.keys(updates).length && !replaceMemberships) throw new AppError(422, 'Provide name, email, password, role or memberships to update');
   updates.updatedAt = new Date();
-  const [updated] = await db.update(users).set(updates).where(eq(users.id, userId))
-    .returning({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin, isActive: users.isActive });
-  return updated;
+  if (replaceMemberships && memberships.length) {
+    const foundSites = await db.select({ id: sites.id }).from(sites).where(inArray(sites.id, memberships.map((entry) => entry.siteId)));
+    if (foundSites.length !== memberships.length) throw new AppError(422, 'One or more site IDs do not exist');
+  }
+  return db.transaction(async (tx) => {
+    const [updated] = await tx.update(users).set(updates).where(eq(users.id, userId))
+      .returning({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin, isActive: users.isActive });
+    if (replaceMemberships) {
+      await tx.delete(siteMembers).where(eq(siteMembers.userId, userId));
+      if (memberships.length) await tx.insert(siteMembers).values(memberships.map(({ siteId, role }) => ({ siteId, userId, role })));
+    } else if (updates.isHubAdmin === true) await tx.delete(siteMembers).where(eq(siteMembers.userId, userId));
+    return updated;
+  });
 }
 
 async function createGlobalUserImpl(actorId, input) {
@@ -98,10 +123,12 @@ async function createGlobalUserImpl(actorId, input) {
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
   if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
+  const initialPassword = email.split('@')[0];
 
   const memberships = normalizeMemberships(input.memberships);
-  const password = email.split('@')[0];
-  if (!password) throw new AppError(422, 'Email must have a non-empty part before @');
+  const role = input.role || 'User';
+  if (!['User', 'Admin'].includes(role)) throw new AppError(422, 'role must be User or Admin');
+  if (role === 'Admin' && memberships.length) throw new AppError(422, 'Global administrators do not use site memberships');
 
   if (memberships.length) {
     const siteIds = memberships.map((membership) => membership.siteId);
@@ -111,10 +138,10 @@ async function createGlobalUserImpl(actorId, input) {
     memberships.forEach((membership) => { membership.siteName = siteById.get(membership.siteId); });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(initialPassword, 12);
   const [created] = await db.transaction(async (tx) => {
     const [user] = await tx.insert(users).values({
-      name, email, passwordHash, isHubAdmin: false, isActive: false,
+      name, email, passwordHash, isHubAdmin: role === 'Admin', isActive: false,
     }).returning({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin });
     if (memberships.length) {
       await tx.insert(siteMembers).values(memberships.map(({ siteId, role }) => ({ siteId, userId: user.id, role })));
@@ -123,7 +150,7 @@ async function createGlobalUserImpl(actorId, input) {
   });
 
   try {
-    await sendAccountEmail({ name, email, password, memberships });
+    await sendAccountEmail({ name, email, password: initialPassword, memberships });
     await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, created.id));
   } catch (error) {
     // Do not leave an unusable active account behind when the welcome message cannot be delivered.
@@ -142,11 +169,6 @@ async function createGlobalUserImpl(actorId, input) {
 // Compatibility exports keep existing route/controller call sites using the same mutation logic.
 export const createUserByGlobalAdmin = (actorId, input) => manageUser({ actorId, action: 'add', scope: 'global', input });
 export const addSiteUser = (siteId, actorId, input) => manageUser({ actorId, action: 'add', scope: 'site', siteId, input });
-
-async function addSiteUserImpl(siteId, actorId, input, actorRole) {
-  // Existing site-user creation flow is shared by global/site add entry points.
-  return createSiteUserForManager(siteId, actorId, input, actorRole);
-}
 
 export async function listUsersForGlobalAdmin(actorId, query = {}) {
   await requireGlobalAdmin(actorId);
@@ -183,7 +205,7 @@ export async function listUsersForGlobalAdmin(actorId, query = {}) {
 
 export async function listSiteUsers(siteId, actorId) {
   const context = await getSiteContext(db, siteId, actorId, ['users']);
-  requireRole(context.role, 'Manager');
+  requireRole(context.role, 'Member');
   const rows = await db.select({
     id: users.id, name: users.name, email: users.email, isActive: users.isActive,
     siteId: siteMembers.siteId, role: siteMembers.role, joinedAt: siteMembers.createdAt,
@@ -192,31 +214,27 @@ export async function listSiteUsers(siteId, actorId) {
   return { siteId, users: rows };
 }
 
-async function createSiteUserForManager(siteId, actorId, input, actorRoleOverride) {
+async function createSiteUserImpl(siteId, actorId, input) {
   const context = await getSiteContext(db, siteId, actorId, ['users']);
-  requireRole(context.role, 'Manager');
+  requireRole(context.role, 'Admin');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
   if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
+  const initialPassword = email.split('@')[0];
 
   const role = input.role || 'Member';
   if (!SITE_ROLES.has(role)) throw new AppError(422, 'Site role must be Member, Manager or Admin');
-  if ((actorRoleOverride || context.role) === 'Manager' && role !== 'Member') {
-    throw new AppError(403, 'Managers can add users as Member; only site Admins can grant elevated roles');
-  }
   const [site] = await db.select({ id: sites.id, name: sites.name }).from(sites).where(eq(sites.id, siteId)).limit(1);
   if (!site) throw new AppError(404, 'Site not found');
 
-  const password = email.split('@')[0];
-  if (!password) throw new AppError(422, 'Email must have a non-empty part before @');
   const existingMatches = await db.select({ id: users.id }).from(users)
     .where(sql`lower(${users.email}) = ${email}`).limit(1);
   let isNewUser = existingMatches.length === 0;
   let account;
 
   if (isNewUser) {
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
     account = await db.transaction(async (tx) => {
       const [created] = await tx.insert(users).values({
         name, email, passwordHash, isHubAdmin: false, isActive: false,
@@ -243,7 +261,7 @@ async function createSiteUserForManager(siteId, actorId, input, actorRoleOverrid
 
   try {
     await sendAccountEmail({
-      name: account.name, email: account.email, password: isNewUser ? password : null,
+      name: account.name, email: account.email, password: isNewUser ? initialPassword : null,
       memberships: [{ siteId, siteName: site.name, role }],
     });
     if (isNewUser) await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, account.id));

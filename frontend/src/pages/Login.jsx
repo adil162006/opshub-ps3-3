@@ -1,21 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
-import { useCurrentUser, useSession } from '../lib/session';
-
-const DEMO = [
-  ['admin@opshub.io',   'admin123',   'Admin',   'Full access — all sites & builder'],
-  ['manager@opshub.io', 'manager123', 'Manager', 'Manager — all 3 sites'],
-  ['member@opshub.io',  'member123',  'Member',  'Read / request only'],
-  ['stores@opshub.io',  'stores123',  'Manager', 'Central Stores only'],
-  ['tech@opshub.io',    'tech123',    'Manager', 'Service Centre only'],
-];
-
-const ROLE_PILL = {
-  Admin:   { bg: 'var(--primary)',   color: 'var(--primary-foreground)' },
-  Manager: { bg: 'var(--success)',   color: 'oklch(0.12 0.04 155)' },
-  Member:  { bg: 'var(--secondary)', color: 'var(--muted-foreground)' },
-};
+import { useAuth } from '../context/Authcontext';
 
 const FEATURES = [
   { icon: '⚡', text: 'Live visibility' },
@@ -43,32 +28,29 @@ const SITES = [
 ];
 
 export default function Login() {
-  const user = useCurrentUser();
+  const { user, loading: sessionLoading, error: authError, login } = useAuth();
   const nav  = useNavigate();
-  const setToken = useSession((s) => s.setToken);
 
   const [email, setEmail]     = useState('');
   const [pw, setPw]           = useState('');
   const [err, setErr]         = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw]   = useState(false);
 
   if (user) return <Navigate to="/" replace />;
-
-  const fill = (e, p) => { setEmail(e); setPw(p); setErr(''); };
+  if (sessionLoading) return <div className="p-10 text-foreground">Checking your session…</div>;
 
   const submit = async (ev) => {
     ev.preventDefault();
     setErr('');
-    setLoading(true);
+    setSubmitting(true);
     try {
-      const r = await api('POST', '/api/auth/login', { email, password: pw });
-      setToken(r.token);
+      await login(email, pw);
       nav('/');
     } catch (x) {
-      setErr(x.message);
+      setErr(x.response?.data?.message || x.response?.data?.error || x.message);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -268,47 +250,17 @@ export default function Login() {
               </div>
             </div>
 
-            {err && <p className="login-card__error">{err}</p>}
+            {(err || authError) && <p className="login-card__error">{err || authError}</p>}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="login-card__submit"
-              style={{ opacity: loading ? 0.7 : 1 }}
+              style={{ opacity: submitting ? 0.7 : 1 }}
             >
-              {loading ? 'Signing in…' : 'Sign in to OpsHub →'}
+              {submitting ? 'Signing in…' : 'Sign in to OpsHub →'}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="login-card__divider">
-            <div className="login-card__divider-line" />
-            <span className="login-card__divider-text">Demo accounts</span>
-            <div className="login-card__divider-line" />
-          </div>
-
-          {/* Demo users */}
-          <div className="login-card__demos">
-            {DEMO.map(([e, p, role, desc]) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => fill(e, p)}
-                className={`login-card__demo-btn${email === e ? ' login-card__demo-btn--active' : ''}`}
-              >
-                <div>
-                  <div className="login-card__demo-email">{e}</div>
-                  <div className="login-card__demo-desc">{desc}</div>
-                </div>
-                <span
-                  className="login-card__demo-role"
-                  style={ROLE_PILL[role] ?? ROLE_PILL.Member}
-                >
-                  {role}
-                </span>
-              </button>
-            ))}
-          </div>
 
           {/* Footer */}
           <p className="login-card__footer">

@@ -1,4 +1,4 @@
-import { check, foreignKey, index, numeric, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
+import { check, foreignKey, index, jsonb, numeric, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { repairStageEnum, repairStatusEnum } from './enums.js';
 import { id, sameSiteId, timestamps } from './common.js';
@@ -20,6 +20,7 @@ export const repairRecords = pgTable('repair_records', {
   technicianId: uuid('technician_id').references(() => users.id, { onDelete: 'set null' }),
   partsCost: numeric('parts_cost', { precision: 14, scale: 2 }).notNull().default('0'),
   labourCost: numeric('labour_cost', { precision: 14, scale: 2 }).notNull().default('0'),
+  metadata: jsonb('metadata').notNull().default({}),
   openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   ...timestamps(),

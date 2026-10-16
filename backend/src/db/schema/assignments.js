@@ -13,6 +13,7 @@ export const assignments = pgTable('assignments', {
   assignmentNumber: varchar('assignment_number', { length: 80 }).notNull(),
   requestId: uuid('request_id'),
   assignedTo: uuid('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  assignee: varchar('assignee', { length: 180 }),
   assignedBy: uuid('assigned_by').references(() => users.id, { onDelete: 'set null' }),
   status: assignmentStatusEnum('status').notNull().default('issued'),
   notes: text('notes'),

@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
-import { getRequests, postRequest, putRequest, removeRequest } from './requests.controller.js';
+import { createRequestHandler, deleteRequestHandler, listRequestsHandler, updateRequestHandler } from './requests.controller.js';
 
 const router = Router();
-router.route('/:siteId/requests').get(requireAuth, getRequests).post(requireAuth, postRequest);
-router.route('/:siteId/requests/:id').put(requireAuth, putRequest).delete(requireAuth, removeRequest);
-
+for (const prefix of ['/:siteId', '/sites/:siteId']) {
+  router.get(`${prefix}/requests`, requireAuth, listRequestsHandler);
+  router.post(`${prefix}/requests`, requireAuth, createRequestHandler);
+  router.put(`${prefix}/requests/:id`, requireAuth, updateRequestHandler);
+  router.delete(`${prefix}/requests/:id`, requireAuth, deleteRequestHandler);
+}
 export default router;

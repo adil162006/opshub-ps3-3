@@ -1,11 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactFlow, { Background, Controls, Handle, MiniMap, Position, ReactFlowProvider, addEdge, useEdgesState, useNodesState, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useDB } from '../lib/db';
-import { apiSync } from '../lib/api';
+import { createSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
+import { useAuth } from '../context/Authcontext';
 import { MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
-import { Badge, attempt, toast, when } from '../ui';
+import { Badge, toast, when } from '../ui';
+
+const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
+
+function builderSiteFromResponse(data) {
+  const versions = (data.versions || []).map((version) => ({
+    id: version.id,
+    v: version.version,
+    nodes: version.config.nodes || [],
+    edges: version.config.edges || [],
+    theme: version.config.theme || {},
+    note: version.note,
+    by: version.createdBy || 'Unknown',
+    at: version.createdAt,
+  }));
+  const versionById = new Map(versions.map((version) => [version.id, version.v]));
+  return {
+    ...data.site,
+    live: versionById.get(data.site.live) ?? null,
+    draft: data.draft || data.config || { nodes: [], edges: [], theme: {} },
+    versions,
+    deploys: (data.deploys || []).map((deploy) => ({
+      ...deploy,
+      version: versionById.get(deploy.versionId) ?? '—',
+      by: deploy.deployedBy || 'Unknown',
+      at: deploy.createdAt,
+    })),
+  };
+}
 
 function ModuleNode({ data, selected }) {
   const m = MODULES[data.type]; const bad = data.issues?.length;
@@ -42,19 +71,57 @@ function FieldsEditor({ fields, onChange }) {
 
 function Canvas({ site }) {
   const nav = useNavigate(); const rf = useReactFlow();
+  const queryClient = useQueryClient();
   const [nodes, setNodes, onNodesChange] = useNodesState(site.draft.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(site.draft.edges);
   const [theme, setTheme] = useState(site.draft.theme);
-  const [tab, setTab] = useState('config'); const [note, setNote] = useState(''); const [preset, setPreset] = useState(Object.keys(PRESETS)[0]); const [saved, setSaved] = useState(true);
+  const [tab, setTab] = useState('config'); const [note, setNote] = useState(''); const [preset, setPreset] = useState(Object.keys(PRESETS)[0]); const [saveStatus, setSaveStatus] = useState('saved'); const [publishing, setPublishing] = useState(false); const [rollingBack, setRollingBack] = useState(false);
   const cfg = useMemo(() => ({ nodes: nodes.map(strip), edges: edges.map(stripE), theme }), [nodes, edges, theme]);
   const v = useMemo(() => validateConfig(cfg), [cfg]);
   const shown = useMemo(() => nodes.map((n) => ({ ...n, data: { ...n.data, issues: v.byNode[n.id] || [] } })), [nodes, v]);
   const sel = nodes.find((n) => n.selected);
-  const first = useRef(true); const cfgRef = useRef(cfg); const dirty = useRef(false);
+  const first = useRef(true); const cfgRef = useRef(cfg); const dirty = useRef(false); const saveInFlight = useRef(null);
   cfgRef.current = cfg;
-  const save = () => { if (!dirty.current) return; dirty.current = false; attempt(() => apiSync('PUT', `/api/sites/${site.id}/draft`, { draft: cfgRef.current })); setSaved(true); };
-  useEffect(() => { if (first.current) { first.current = false; return undefined; } dirty.current = true; setSaved(false); const t = setTimeout(save, 500); return () => clearTimeout(t); }, [cfg]); // eslint-disable-line
-  useEffect(() => () => save(), []); // eslint-disable-line
+  const save = async (force = false) => {
+    if (saveInFlight.current) {
+      const succeeded = await saveInFlight.current;
+      if (!succeeded) return false;
+      if (dirty.current || force) return save(force && !dirty.current);
+      return true;
+    }
+    if (!force && !dirty.current) return true;
+
+    const snapshot = cfgRef.current;
+    dirty.current = false;
+    setSaveStatus('saving');
+    const request = saveSiteDraft(site.id, snapshot)
+      .then(() => {
+        if (cfgRef.current === snapshot) setSaveStatus('saved');
+        return true;
+      })
+      .catch((error) => {
+        dirty.current = true;
+        setSaveStatus('error');
+        toast.err(`Could not save site draft: ${errorMessage(error)}`);
+        return false;
+      });
+    saveInFlight.current = request;
+    const succeeded = await request;
+    if (saveInFlight.current === request) saveInFlight.current = null;
+    if (!succeeded) return false;
+    if (dirty.current) return save();
+    return true;
+  };
+  useEffect(() => {
+    if (first.current) { first.current = false; return undefined; }
+    dirty.current = true;
+    setSaveStatus('saving');
+    const timer = setTimeout(() => { void save(); }, 500);
+    return () => clearTimeout(timer);
+  }, [cfg]); // eslint-disable-line
+  useEffect(() => () => {
+    if (dirty.current) void save();
+  }, []); // eslint-disable-line
 
   const patch = (id, p) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...p } } : n)));
   const patchCfg = (id, p) => setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, config: { ...n.data.config, ...p } } } : n)));
@@ -72,10 +139,48 @@ function Canvas({ site }) {
     return setEdges((es) => addEdge({ ...c, id: `e-${c.source}-${c.target}`, label: TYPE_LABEL[type], animated: true }, es));
   };
   const applyPreset = () => { if (!confirm(`Replace the canvas with "${preset}"?`)) return; const p = PRESETS[preset](); setNodes(p.nodes); setEdges(p.edges); setTimeout(() => rf.fitView({ padding: 0.2 }), 60); };
-  const publish = () => { dirty.current = true; save(); attempt(() => apiSync('POST', `/api/sites/${site.id}/publish`, { note }), 'Published — live site updated, no restart'); setNote(''); };
-  const rollback = (ver) => {
-    if (!attempt(() => apiSync('POST', `/api/sites/${site.id}/rollback`, { version: ver }), `Rolled back to v${ver}`)) return;
-    const t = site.versions.find((x) => x.v === ver); setNodes(structuredClone(t.nodes)); setEdges(structuredClone(t.edges)); setTheme(t.theme);
+  const publish = async () => {
+    if (v.errors.length || publishing) return;
+    setPublishing(true);
+    try {
+      if (!(await save(true))) return;
+      const result = await publishSite(site.id, note);
+      setNote('');
+      toast.ok(`Published site configuration as version ${result.version}.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SITES_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['site', site.id] }),
+        queryClient.invalidateQueries({ queryKey: ['builder-site', site.id] }),
+      ]);
+    } catch (error) {
+      toast.err(`Could not publish site configuration: ${errorMessage(error)}`);
+    } finally {
+      setPublishing(false);
+    }
+  };
+  const rollback = async (version) => {
+    const target = site.versions.find((item) => item.v === version);
+    if (!target || rollingBack) return;
+    if (dirty.current && !window.confirm('Discard unsaved changes and roll back to this published version?')) return;
+    setRollingBack(true);
+    try {
+      await rollbackSite(site.id, version);
+      dirty.current = false;
+      setNodes(structuredClone(target.nodes));
+      setEdges(structuredClone(target.edges));
+      setTheme(structuredClone(target.theme));
+      setSaveStatus('saved');
+      toast.ok(`Rolled back to version ${version}.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SITES_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['site', site.id] }),
+        queryClient.invalidateQueries({ queryKey: ['builder-site', site.id] }),
+      ]);
+    } catch (error) {
+      toast.err(`Could not roll back site: ${errorMessage(error)}`);
+    } finally {
+      setRollingBack(false);
+    }
   };
   const typesOf = (ver) => new Set(ver.nodes.map((n) => n.data.type));
   const diff = (ver, i, arr) => { const prev = arr[i + 1]; if (!prev) return []; const a = typesOf(ver); const b = typesOf(prev); return [...[...a].filter((t) => !b.has(t)).map((t) => `+${MODULES[t].page?.title || t}`), ...[...b].filter((t) => !a.has(t)).map((t) => `−${MODULES[t].page?.title || t}`)]; };
@@ -98,8 +203,12 @@ function Canvas({ site }) {
           <b>{site.name}</b><span className="muted">/{site.slug}</span>
           <select className="input" style={{ width: 150 }} value={preset} onChange={(e) => setPreset(e.target.value)}>{Object.keys(PRESETS).map((p) => <option key={p}>{p}</option>)}</select><button className="btn btn-sm" onClick={applyPreset}>Load preset</button>
           <span className={`px-2 py-0.5 rounded-full text-xs ${v.errors.length ? 'bg-red-400/15 text-red-300' : 'bg-emerald-400/15 text-emerald-300'}`}>{v.errors.length ? `${v.errors.length} issue${v.errors.length > 1 ? 's' : ''}` : 'Valid'}</span>
-          <span className="text-xs muted">{saved ? 'Draft saved' : 'Saving…'}</span>
-          <div className="ml-auto flex gap-2"><button className="btn" onClick={() => { dirty.current = true; save(); nav(`/preview/${site.slug}`); }}>👁 Preview draft</button><Link className="btn" to={`/s/${site.slug}`}>Open live ↗</Link></div>
+          <span className="text-xs muted">{saveStatus === 'saved' ? 'Draft saved' : saveStatus === 'error' ? 'Save failed' : 'Saving…'}</span>
+          <div className="ml-auto flex gap-2">
+            <button className="btn" disabled={saveStatus === 'saving'} onClick={() => { dirty.current = true; void save(); }}>Save draft</button>
+            <button className="btn" onClick={async () => { if (await save(true)) nav(`/preview/${site.slug}`); }}>👁 Preview draft</button>
+            <Link className="btn" to={`/s/${site.slug}`}>Open live ↗</Link>
+          </div>
         </div>
         <div className="flex-1" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const t = e.dataTransfer.getData('application/opshub'); if (t) addModule(t, rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })); }}>
           <ReactFlow nodes={shown} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} fitView fitViewOptions={{ padding: 0.2 }} deleteKeyCode={['Backspace', 'Delete']}>
@@ -140,11 +249,11 @@ function Canvas({ site }) {
             </div>)}
           {tab === 'releases' && (
             <div className="space-y-3">
-              <div className="space-y-2"><label className="lbl">Publish draft as v{Math.max(...site.versions.map((x) => x.v)) + 1}</label><input className="input" placeholder="Release note" value={note} onChange={(e) => setNote(e.target.value)} />
-                <button className="btn btn-primary w-full justify-center" disabled={v.errors.length > 0} onClick={publish}>🚀 Publish to live</button>{v.errors.length > 0 && <div className="text-xs text-red-600">Fix {v.errors.length} issue(s) first.</div>}</div>
+              <div className="space-y-2"><label className="lbl">Publish draft as v{Math.max(0, ...site.versions.map((x) => x.v)) + 1}</label><input className="input" placeholder="Release note" value={note} onChange={(e) => setNote(e.target.value)} />
+                <button className="btn btn-primary w-full justify-center" disabled={v.errors.length > 0 || publishing || rollingBack} onClick={publish}>{publishing ? 'Publishing…' : '🚀 Publish to live'}</button>{v.errors.length > 0 && <div className="text-xs text-red-600">Fix {v.errors.length} issue(s) first.</div>}</div>
               <div className="lbl">Versions</div>
               {versions.map((ver, i, arr) => (
-                <div key={ver.v} className="border rounded-lg p-2 text-xs space-y-1"><div className="flex justify-between items-center"><b>v{ver.v}</b>{ver.v === site.live ? <Badge v="live" /> : <button className="btn btn-sm" onClick={() => rollback(ver.v)}>Rollback</button>}</div>
+                <div key={ver.v} className="border rounded-lg p-2 text-xs space-y-1"><div className="flex justify-between items-center"><b>v{ver.v}</b>{ver.v === site.live ? <Badge v="live" /> : <button className="btn btn-sm" disabled={rollingBack || publishing} onClick={() => rollback(ver.v)}>{rollingBack ? 'Rolling back…' : 'Rollback'}</button>}</div>
                   <div>{ver.note || '—'}</div><div className="muted">{ver.by} · {when(ver.at)}</div><div className="flex gap-1 flex-wrap">{diff(ver, i, arr).map((d) => <span key={d} className={`px-1.5 rounded ${d[0] === '+' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{d}</span>)}</div></div>))}
               <div className="lbl">Deploy history</div>
               <ul className="text-xs space-y-1">{[...site.deploys].reverse().map((d) => <li key={d.id}>{d.action === 'rollback' ? '↩️' : '🚀'} <b>v{d.version}</b> {d.action} · {d.by} · <span className="muted">{when(d.at)}</span></li>)}</ul>
@@ -155,25 +264,69 @@ function Canvas({ site }) {
 }
 
 export function BuilderEditor() {
-  const { slug } = useParams(); const site = useDB((s) => s.sites.find((x) => x.slug === slug));
-  if (!site) return <div className="p-10" style={{ color: 'var(--foreground)' }}>Site not found</div>;
+  const { slug } = useParams();
+  const { data: sites = [], isLoading: sitesLoading, error: sitesError } = useQuery({
+    queryKey: SITES_QUERY_KEY,
+    queryFn: getSites,
+  });
+  const siteSummary = sites.find((candidate) => candidate.slug === slug);
+  const { data, isLoading: siteLoading, error: siteError } = useQuery({
+    queryKey: ['builder-site', siteSummary?.id],
+    queryFn: () => getSite(siteSummary.id, true),
+    enabled: !!siteSummary,
+  });
+  if (sitesLoading || (siteSummary && siteLoading)) return <div className="p-10 muted">Loading site configuration…</div>;
+  if (sitesError || siteError) return <div role="alert" className="p-10 text-red-400">Could not load site configuration: {errorMessage(sitesError || siteError)}</div>;
+  if (!siteSummary) return <div className="p-10" style={{ color: 'var(--foreground)' }}>Site not found or unavailable to this account.</div>;
+  if (!data) return <div className="p-10" style={{ color: 'var(--foreground)' }}>Site configuration is unavailable.</div>;
+  const site = builderSiteFromResponse(data);
   return <ReactFlowProvider><Canvas key={site.id} site={site} /></ReactFlowProvider>;
 }
 
 export function BuilderIndex() {
-  const sites = useDB((s) => s.sites); const nav = useNavigate();
+  const queryClient = useQueryClient();
+  const nav = useNavigate();
+  const { user } = useAuth();
+  const isGlobalAdmin = user?.role === 'Admin';
+  const { data: sites = [], isLoading, error } = useQuery({
+    queryKey: SITES_QUERY_KEY,
+    queryFn: getSites,
+  });
+  const manageableSites = sites.filter((site) => isGlobalAdmin || site.role === 'Admin');
+  const [createError, setCreateError] = useState('');
+  const createMutation = useMutation({
+    mutationFn: createSite,
+    onSuccess: async (result) => {
+      setCreateError('');
+      toast.ok('Site created with its preset configuration.');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SITES_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['builder-site', result.id] }),
+      ]);
+      nav(`/builder/${result.slug}`);
+    },
+    onError: (createRequestError) => setCreateError(errorMessage(createRequestError)),
+  });
   const [f, setF] = useState({ name: '', slug: '', preset: Object.keys(PRESETS)[0] });
   return (
     <div className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="max-w-4xl mx-auto space-y-4">
         <h1 className="text-xl font-semibold">Site builder</h1>
-        <div className="grid md:grid-cols-3 gap-3">{sites.map((s) => <Link key={s.id} to={`/builder/${s.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{s.name}</div><div className="text-xs muted">/{s.slug} · live v{s.live} · {s.draft.nodes.length} modules</div></Link>)}</div>
-        <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(e) => { e.preventDefault(); const r = attempt(() => apiSync('POST', '/api/sites', f), 'Site created'); if (r) nav(`/builder/${r.slug}`); }}>
-          <div><label className="lbl">New site name</label><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-          <div><label className="lbl">Slug</label><input className="input" value={f.slug} onChange={(e) => setF({ ...f, slug: e.target.value })} /></div>
-          <div><label className="lbl">Start from</label><select className="input" value={f.preset} onChange={(e) => setF({ ...f, preset: e.target.value })}>{Object.keys(PRESETS).map((p) => <option key={p}>{p}</option>)}</select></div>
-          <div className="flex items-end"><button className="btn btn-primary">Create site</button></div>
-        </form>
+        {isLoading && <p className="muted">Loading sites…</p>}
+        {error && <p role="alert" className="text-sm text-red-400">{errorMessage(error)}</p>}
+        {!isLoading && !error && manageableSites.length > 0 && <div className="grid md:grid-cols-3 gap-3">{manageableSites.map((site) => <Link key={site.id} to={`/builder/${site.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{site.name}</div><div className="text-xs muted">/{site.slug} · live v{site.live ?? '—'} · {(site.moduleTypes || []).length} published modules · {site.role}</div></Link>)}</div>}
+        {!isLoading && !error && !manageableSites.length && <p className="muted">You do not have Admin access to any sites to configure.</p>}
+        {isGlobalAdmin && <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(event) => {
+          event.preventDefault();
+          setCreateError('');
+          createMutation.mutate(f);
+        }}>
+          <div><label className="lbl">New site name</label><input className="input" required maxLength={180} value={f.name} onChange={(event) => setF({ ...f, name: event.target.value })} /></div>
+          <div><label className="lbl">Slug</label><input className="input" required maxLength={120} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={f.slug} onChange={(event) => setF({ ...f, slug: event.target.value })} /></div>
+          <div><label className="lbl">Start from</label><select className="input" value={f.preset} onChange={(event) => setF({ ...f, preset: event.target.value })}>{Object.keys(PRESETS).map((preset) => <option key={preset}>{preset}</option>)}</select></div>
+          <div className="flex items-end"><button className="btn btn-primary" disabled={createMutation.isPending || isLoading || !!error}>{createMutation.isPending ? 'Creating…' : 'Create site'}</button></div>
+          {createError && <p role="alert" className="text-sm text-red-400 sm:col-span-4">{createError}</p>}
+        </form>}
       </div>
     </div>);
 }

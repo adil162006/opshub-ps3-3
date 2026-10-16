@@ -1,16 +1,14 @@
 import { verifyToken } from '../lib/jwt.js';
 
 export function requireAuth(req, res, next) {
-  let token = null;
-  const header = req.get('authorization') || '';
-  const [scheme, credentials] = header.split(' ');
-
-  if (scheme === 'Bearer' && credentials) {
-    token = credentials;
-  } else if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
+  const origin = req.get('origin');
+  const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
+    .split(',').map((value) => value.trim()).filter(Boolean);
+  if (origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: 'Origin is not allowed' });
   }
 
+  const token = req.cookies?.token;
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
   }
