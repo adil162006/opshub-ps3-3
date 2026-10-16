@@ -6,7 +6,7 @@ export default function Tests() {
   const [res, setRes] = useState(null);
   const pass = res?.filter((r) => r.ok).length;
   return (
-    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
+    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: '#f6f7fb', color: '#0f172a' }}>
       <Page title="site_id isolation & RBAC tests" sub="Runs against a sandbox copy of the database — your data is untouched. Also available as `npm run test:isolation`."
         actions={<button className="btn btn-primary" onClick={() => setRes(runIsolationTests())}>▶ Run all tests</button>}>
         {res && <div className={`card p-3 font-semibold ${pass === res.length ? 'text-green-700' : 'text-red-700'}`}>{pass}/{res.length} passed</div>}
