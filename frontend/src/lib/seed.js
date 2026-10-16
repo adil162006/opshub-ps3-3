@@ -34,9 +34,9 @@ export function buildSeed() {
       deploys: vs.map((v) => ({ id: `dep_${id}_${v.v}`, action: 'publish', version: v.v, at: v.at, by: v.by, note: v.note })) });
   };
   mkSite('site_1', 'central-stores', 'Central Stores', 'Inventory, stock control, analytics and Excel.', 'Inventory Starter',
-    { primary: '#0369a1', accent: '#14b8a6', layout: 'sidebar', radius: 10 });
+    { primary: '#0369a1', accent: '#14b8a6', mode: 'dark', layout: 'sidebar', radius: 10 });
   mkSite('site_2', 'service-centre', 'Service Centre', 'Requests → approval → PCB repair, with returns.', 'Repair Shop',
-    { primary: '#9333ea', accent: '#f43f5e', layout: 'topbar', radius: 18, font: 'serif' },
+    { primary: '#9333ea', accent: '#f43f5e', mode: 'dark', layout: 'topbar', radius: 18, font: 'serif' },
     (p) => { p.nodes.find((n) => n.id === 'request-1').data.config.fields = repairRequestFields(); });
   mkSite('site_3', 'distribution', 'Distribution Team', 'Issue material to the field and track consumption.', 'Approval Chain',
     { primary: '#16a34a', accent: '#f59e0b', mode: 'dark', layout: 'sidebar', density: 'compact', radius: 6, font: 'mono' },
