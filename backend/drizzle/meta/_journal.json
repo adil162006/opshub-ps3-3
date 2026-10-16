@@ -22,6 +22,27 @@
       "when": 1792150001000,
       "tag": "0002_site_drafts",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792170457367,
+      "tag": "0003_repair_record_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792170622054,
+      "tag": "0004_thick_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792170622055,
+      "tag": "0005_request_open_status",
+      "breakpoints": true
     }
   ]
 }

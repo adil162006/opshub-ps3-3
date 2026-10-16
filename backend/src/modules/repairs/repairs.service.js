@@ -13,8 +13,11 @@ async function repairRow(query, siteId, id) {
     ticketNumber: repairRecords.ticketNumber,
     requestId: repairRecords.requestId,
     customerName: repairRecords.customerName,
+    customerContact: repairRecords.customerContact,
     device: repairRecords.device,
+    serialNo: repairRecords.serialNo,
     fault: repairRecords.fault,
+    diagnosis: repairRecords.diagnosis,
     stage: repairRecords.stage,
     statusValue: repairRecords.status,
     technicianId: repairRecords.technicianId,
@@ -51,8 +54,11 @@ async function publicRows(siteId, records, tx = db) {
     requestId: row.requestId,
     requestNo: row.requestNumber || row.ticketNumber,
     customer: row.customerName || row.metadata?.customer || '',
+    customerContact: row.customerContact || row.metadata?.customerContact || row.metadata?.phone || '',
     device: row.device,
+    serialNo: row.serialNo || row.metadata?.serialNo || '',
     fault: row.fault,
+    diagnosis: row.diagnosis || row.metadata?.diagnosis || '',
     partsCost: Number(row.partsCost),
     labourCost: Number(row.labourCost),
     total: Number(row.partsCost) + Number(row.labourCost),
@@ -79,7 +85,7 @@ export async function startRepair(siteId, actorId, body) {
     const [request] = await tx.select().from(requests)
       .where(and(eq(requests.siteId, siteId), eq(requests.id, body.requestId))).for('update').limit(1);
     if (!request) throw new ApiError(404, 'Request not found');
-    if (request.status !== 'approved') throw new ApiError(409, `${request.requestNumber} must be approved before repair can start`);
+    if (!['approved', 'open'].includes(request.status)) throw new ApiError(409, `${request.requestNumber} must be approved before repair can start`);
     const values = await cleanConfiguredFields(tx, siteId, config, 'repair', body);
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${siteId}))`);
     const [{ total }] = await tx.select({ total: sql`count(*)::int` }).from(repairRecords).where(eq(repairRecords.siteId, siteId));
@@ -88,8 +94,11 @@ export async function startRepair(siteId, actorId, body) {
       ticketNumber: `REP-${String(Number(total) + 1).padStart(3, '0')}`,
       requestId: request.id,
       customerName: request.metadata?.customer || null,
+      customerContact: values.customerContact || request.metadata?.customerContact || request.metadata?.phone || null,
       device: String(values.device || request.metadata?.device || '').trim(),
+      serialNo: values.serialNo || request.metadata?.serialNo || null,
       fault: String(values.fault || request.metadata?.fault || request.metadata?.issue || '').trim(),
+      diagnosis: values.diagnosis || null,
       partsCost: String(Number(values.partsCost) || 0),
       labourCost: String(Number(values.labourCost) || 0),
       stage: 'diagnosis',
@@ -115,6 +124,9 @@ export async function updateRepair(siteId, id, actorId, body) {
     const allowed = await cleanConfiguredFields(tx, siteId, config, 'repair', body, current.metadata || {});
     const patch = { metadata: allowed, updatedAt: new Date() };
     for (const key of ['device', 'fault']) if (body[key] !== undefined) patch[key] = String(body[key]).trim();
+    for (const key of ['customerContact', 'serialNo', 'diagnosis']) {
+      if (body[key] !== undefined) patch[key] = body[key] === '' ? null : String(body[key]).trim();
+    }
     for (const key of ['partsCost', 'labourCost']) if (body[key] !== undefined) patch[key] = String(Number(body[key]));
     if (body.status !== undefined) {
       if (!STAGES.includes(body.status)) throw new ApiError(422, `status must be one of: ${STAGES.join(', ')}`);

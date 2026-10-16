@@ -1,18 +1,13 @@
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { Badge, DataTable, fmt } from '../ui';
-import { useAuth } from '../context/Authcontext';
 import { getSites, SITES_QUERY_KEY } from '../api/site.api';
 import { MODULES } from '../lib/registry';
 
 export default function Hub() {
-  const { user } = useAuth();
   const { data: sites = [], isLoading, error } = useQuery({
     queryKey: SITES_QUERY_KEY,
     queryFn: getSites,
   });
-  const stats = sites.map((site) => ({ ...site, items: '—', value: null, pending: '—', repairs: '—' }));
 
   return (
     <div style={{ background: 'var(--background)', minHeight: 'calc(100vh - 48px)', color: 'var(--foreground)' }}>
@@ -37,7 +32,7 @@ export default function Hub() {
       {/* Site cards */}
       <div className="px-8 pb-10">
         <div className="grid md:grid-cols-3 gap-4 mb-10">
-          {stats.map((s) => {
+          {sites.map((s) => {
             const primary = s.theme?.primary || 'oklch(0.82 0.16 85)';
             const modules = s.moduleTypes || [];
             const shown = modules.slice(0, 5);
@@ -112,55 +107,6 @@ export default function Hub() {
               </div>
             );
           })}
-        </div>
-
-        {/* Combined stats section */}
-        <div className="rounded-2xl p-6" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-          <h2 className="font-semibold text-base mb-5">Combined view across units</h2>
-          <div className="grid md:grid-cols-3 gap-3 mb-6">
-            {[
-              { label: 'Sites', value: sites.length },
-              { label: 'Total stock value', value: stats.some((site) => site.value != null) ? fmt(stats.reduce((a, site) => a + (site.value || 0), 0)) : '—' },
-              { label: 'Pending requests (all units)', value: '—' },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="rounded-xl p-4"
-                style={{ background: 'var(--secondary)', border: '1px solid var(--border)' }}
-              >
-                <div className="text-xs uppercase tracking-wider mb-2 font-medium" style={{ color: 'var(--muted-foreground)' }}>{label}</div>
-                <div className="text-2xl font-semibold tabular-nums">{value}</div>
-              </div>
-            ))}
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <DataTable
-              rows={stats}
-              columns={[
-                { key: 'name', label: 'Unit' },
-                { key: 'items', label: 'SKUs' },
-                { label: 'Stock value', render: (s) => (s.value == null ? '—' : fmt(s.value)) },
-                { key: 'pending', label: 'Pending' },
-                { key: 'repairs', label: 'Open repairs' },
-              ]}
-            />
-            <div className="rounded-xl p-4" style={{ background: 'var(--secondary)', border: '1px solid var(--border)' }}>
-              <div className="lbl mb-3">Stock value by unit</div>
-              <div style={{ height: 180 }}>
-                <ResponsiveContainer>
-                  <BarChart data={stats.filter((s) => s.value != null).map((s) => ({ name: s.name, value: s.value }))}>
-                    <XAxis dataKey="name" fontSize={11} tick={{ fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <YAxis fontSize={11} tick={{ fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--foreground)' }}
-                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                    />
-                    <Bar dataKey="value" fill="oklch(0.82 0.16 85)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

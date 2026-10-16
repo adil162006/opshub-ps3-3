@@ -9,7 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "node src/db/seed.js",
+    "db:seed": "node prepareSeedDatabase.js && node src/db/seed.js && node newSeed.js",
     "db:studio": "drizzle-kit studio"
   },
   "keywords": [],

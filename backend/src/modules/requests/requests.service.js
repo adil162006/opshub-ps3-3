@@ -62,7 +62,7 @@ export async function createRequest(siteId, actorId, body) {
       siteId,
       requestNumber,
       requestedBy: actorId,
-      status: hasApproval ? 'pending' : 'approved',
+      status: hasApproval ? 'pending' : 'open',
       priority,
       currentStep: 0,
       team: typeof team === 'string' ? team.trim() : null,
@@ -97,7 +97,7 @@ export async function updateRequest(siteId, requestId, actorId, body) {
       .leftJoin(users, eq(requests.requestedBy, users.id))
       .where(and(eq(requests.siteId, siteId), eq(requests.id, requestId))).limit(1);
     if (!current) throw new ApiError(404, 'Request not found');
-    const canEdit = current.status === 'pending' || (current.status === 'approved' && approvalSteps(config).length === 0);
+    const canEdit = current.status === 'pending' || (current.status === 'open' && approvalSteps(config).length === 0);
     if (!canEdit) throw new ApiError(409, 'Only pending requests can be edited');
     const metadata = await cleanConfiguredFields(tx, siteId, config, 'request', body, current.metadata || {});
     const patch = { metadata, updatedAt: new Date() };

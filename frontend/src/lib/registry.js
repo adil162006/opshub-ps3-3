@@ -25,7 +25,7 @@ export const MODULES = {
   consumption: { name: 'Consumption Tracking', icon: '📉', group: 'Tracking', desc: 'Log material used against an assignment.', requires: [['assignment']], outputs: ['consumption'], resources: ['consumption'], page: { path: 'consumption', title: 'Consumption' } },
   returns: { name: 'Return Management', icon: '↩️', group: 'Tracking', desc: 'Returns of assigned material (restock) or repaired devices.', requires: [['assignment', 'repair']], outputs: ['return'], resources: ['returns'], page: { path: 'returns', title: 'Returns' } },
   repair: { name: 'PCB Repair', icon: '🔧', group: 'Tracking', desc: 'Repair board: diagnosis → repairing → testing → completed, with cost fields.', requires: [['approval']], outputs: ['repair'], resources: ['repairs'], page: { path: 'repairs', title: 'Repairs' },
-    defaultFields: [F('device', 'Device / Board', 'text', { required: true }), F('fault', 'Fault', 'text', { required: true }), F('partsCost', 'Parts Cost', 'number'), F('labourCost', 'Labour Cost', 'number'), F('total', 'Total', 'calc', { formula: 'partsCost + labourCost' })] },
+    defaultFields: [F('device', 'Device / Board', 'text', { required: true }), F('serialNo', 'Serial Number'), F('customerContact', 'Customer Contact'), F('fault', 'Fault', 'text', { required: true }), F('diagnosis', 'Diagnosis'), F('partsCost', 'Parts Cost', 'number'), F('labourCost', 'Labour Cost', 'number'), F('total', 'Total', 'calc', { formula: 'partsCost + labourCost' })] },
   analytics: { name: 'Analytics Dashboard', icon: '📊', group: 'Insight', desc: 'Per-site Recharts dashboards from connected data.', requires: [DATA], outputs: [], resources: [], page: { path: 'analytics', title: 'Analytics' } },
   reports: { name: 'Reports with Excel Integration', icon: '📑', group: 'Insight', desc: 'Browse data; role-restricted Excel import / export.', requires: [DATA], outputs: [], resources: [], page: { path: 'reports', title: 'Reports & Excel' } },
 };
@@ -83,7 +83,12 @@ export function validateConfig(cfg) {
         if (f.type === 'calc') { const e = validateFormula(f.formula || '', keys.filter((k) => k !== f.key)); if (e) add(n.id, `${f.label}: ${e}`); }
         if (f.type === 'item' && !types.includes('inventory')) add(n.id, `"${f.label}" needs the Inventory module`);
       });
-      if (t === 'inventory' && !keys.includes('qty')) add(n.id, 'Inventory needs a "qty" field');
+      if (t === 'inventory') {
+        ['sku', 'name', 'qty'].filter((key) => !keys.includes(key)).forEach((key) => add(n.id, `Inventory needs a "${key}" field`));
+      }
+      if (t === 'repair') {
+        ['device', 'fault'].filter((key) => !keys.includes(key)).forEach((key) => add(n.id, `Repair needs a "${key}" field`));
+      }
       if (t === 'request' && fields.some((f) => f.type === 'item') && !keys.includes('qty')) add(n.id, 'Request needs a "qty" field when it has an item field');
     }
   });

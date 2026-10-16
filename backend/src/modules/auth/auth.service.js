@@ -1,9 +1,8 @@
-import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
-import { MIN_PASSWORD_LENGTH } from '../../lib/password.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../../lib/password.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,7 +27,7 @@ export async function signupGlobalAdmin({ name, email, password }) {
     .limit(1);
   if (existingUser) throw new AppError(409, 'Email already registered');
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
   try {
     const [user] = await db.insert(users).values({
       name: normalizedName,

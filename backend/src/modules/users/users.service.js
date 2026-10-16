@@ -1,10 +1,9 @@
-import bcrypt from 'bcryptjs';
 import { and, asc, count, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
 import { sendAccountEmail } from '../../lib/accountEmail.js';
-import { MIN_PASSWORD_LENGTH } from '../../lib/password.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../../lib/password.js';
 import { getSiteContext, requireRole } from '../shared/siteContext.js';
 
 const SITE_ROLES = new Set(['Member', 'Manager', 'Admin']);
@@ -92,7 +91,7 @@ export async function manageUser({ actorId, action, scope = 'global', siteId, us
   }
   if (input.password !== undefined) {
     if (typeof input.password !== 'string' || input.password.length < MIN_PASSWORD_LENGTH) throw new AppError(422, `password must be at least ${MIN_PASSWORD_LENGTH} characters`);
-    updates.passwordHash = await bcrypt.hash(input.password, 12);
+    updates.passwordHash = await hashPassword(input.password);
   }
   if (input.role !== undefined) {
     if (!['User', 'Admin'].includes(input.role)) throw new AppError(422, 'role must be User or Admin');
@@ -139,7 +138,7 @@ async function createGlobalUserImpl(actorId, input) {
     memberships.forEach((membership) => { membership.siteName = siteById.get(membership.siteId); });
   }
 
-  const passwordHash = await bcrypt.hash(initialPassword, 12);
+  const passwordHash = await hashPassword(initialPassword);
   const [created] = await db.transaction(async (tx) => {
     const [user] = await tx.insert(users).values({
       name, email, passwordHash, isHubAdmin: role === 'Admin', isActive: false,
@@ -235,7 +234,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
   let account;
 
   if (isNewUser) {
-    const passwordHash = await bcrypt.hash(initialPassword, 12);
+    const passwordHash = await hashPassword(initialPassword);
     account = await db.transaction(async (tx) => {
       const [created] = await tx.insert(users).values({
         name, email, passwordHash, isHubAdmin: false, isActive: false,

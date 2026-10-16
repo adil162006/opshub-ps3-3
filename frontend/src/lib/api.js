@@ -90,7 +90,7 @@ const CREATE = {
   },
   assignments: (d, c) => {
     const req = getRow(d, 'requests', c.siteId, c.body.requestId);
-    if (req.status !== 'approved') fail(409, `${req.requestNo} is ${req.status}; must be approved`);
+    if (!['approved', 'open'].includes(req.status)) fail(409, `${req.requestNo} is ${req.status}; must be approved`);
     const key = itemKey(c.config); if (!key) fail(422, 'Request form has no inventory item field');
     const item = getRow(d, 'inventory', c.siteId, req[key]);
     const qty = Number(c.body.qty ?? req.qty);
@@ -133,7 +133,7 @@ const CREATE = {
   },
   repairs: (d, c) => {
     const req = getRow(d, 'requests', c.siteId, c.body.requestId);
-    if (req.status !== 'approved') fail(409, `${req.requestNo} is ${req.status}; must be approved`);
+    if (!['approved', 'open'].includes(req.status)) fail(409, `${req.requestNo} is ${req.status}; must be approved`);
     const data = cleanRow(fieldsOf(c.config, 'repair'), c.body, d, c.siteId);
     const r = insert(d, 'repairs', c.siteId, { ...data, requestId: req.id, requestNo: req.requestNo, status: 'diagnosis', technician: c.user.name });
     req.status = 'in-repair';

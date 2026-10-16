@@ -1,4 +1,4 @@
-# OpsHub feature status
+﻿# OpsHub feature status
 
 ## Summary
 
@@ -19,7 +19,7 @@ Status labels:
 - Configurable fields and calculated fields, including examples such as `qty * price`, with validation in the prototype.
 - Draft preview, publish validation, numbered releases, release history, and rollback in browser state.
 - Prototype screens for inventory, requests, approvals, assignments, assignment/field view, consumption, returns, PCB repair, analytics, reports, access, and members.
-- A simulated request → approval → assignment flow with stock decrement and rollback-on-error semantics in the in-memory transaction layer.
+- A simulated request â†’ approval â†’ assignment flow with stock decrement and rollback-on-error semantics in the in-memory transaction layer.
 - Recharts dashboards, and browser-based Excel export plus inventory import/upsert with role checks in the simulated API.
 - Seeded demo data, browser-based JSON backup/restore/reset, and a frontend isolation/RBAC test suite.
 
@@ -34,13 +34,13 @@ The frontend README describes the prototype and demo accounts: [frontend/README.
 
 ## Frontend gaps and limitations
 
-- **Published configuration does not fully drive site navigation.** `SiteRoute.jsx` filters generated pages through a hard-coded per-slug allowlist. Modules enabled in the builder can therefore be missing from the live site's navigation and renderer. This prevents the stated “enable Returns on Distribution, publish, and reload” demo from being reliably satisfied.
-- **Admin navigation is hidden.** The shell currently exposes only the Hub link; Builder, Users, Catalogue, Tests, and Backup routes are not linked in the visible navigation.
+
+- The shell links to Hub and Catalogue, and exposes Builder and Users for admins. Prototype checks and browser backup settings are not linked in the shell.
 - **The offline simulator remains in the repository.** Isolation/demo tools and non-UUID sample sites still use browser state; live HTTP behavior requires UUID-backed sites and an available PostgreSQL service.
-- **Browser-local data is not shared or durable across users/devices.** There is no server-backed site provisioning, shared database, or deployment service.
-- **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security, ORM scoping, and cross-site database references remain unverified.
-- **The current schema target is incomplete.** `frontend/docs/schema.sql` defines only a subset of the data model and enables row-level security only for inventory. It does not yet define and secure every business table required by the feature set.
-- **Proposal documentation is incomplete.** The in-app catalogue gives an architecture overview, module list, API outline, and abbreviated schema, but the requested complete architecture diagram, data model/API design, and project README still need to be delivered and aligned with the real backend.
+- **Browser-local data is not shared or durable across users/devices.** A server-backed site provisioning API and shared database are implemented, but no deployed service is configured; browser-local demo sites remain.
+- **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security is not implemented, and real database isolation has not been verified.
+- **Database-level tenant isolation is incomplete.** The canonical schema is defined in `backend/src/db/schema/` and migrated through `backend/drizzle/`. PostgreSQL row-level security is still pending for business tables; `frontend/docs/schema.sql` now points to that canonical source.
+- **Proposal documentation is incomplete.** The in-app catalogue gives an architecture overview, module list, API outline, and canonical schema pointer, but the requested complete architecture diagram, data model/API design, and project README still need to be delivered and aligned with the real backend.
 - **No end-to-end tests exercise a real browser-to-API-to-PostgreSQL deployment.**
 
 ## Backend: implementation in progress
@@ -64,7 +64,7 @@ The backend now has an Express service, Drizzle schema/migrations, server-issued
 
 ## Delivery checks still required
 
-- [ ] Verify that publishing a module change makes its page available from configuration alone, without site-slug-specific frontend code or a restart.
+- [x] Published pages and navigation are derived from enabled modules in configuration without site-slug-specific frontend code.
 - [ ] Demonstrate the same three sites using a shared backend and database while proving cross-site reads and writes are denied at both API and database levels.
 - [ ] Complete the supplied live-demo script, including enabling Returns on Distribution and role-restricted Excel import/export against the real service.
 - [ ] Finish and validate the architecture diagram, complete module registry mapping, data model/API design, and README against the implemented system.

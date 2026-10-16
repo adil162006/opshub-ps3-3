@@ -5,7 +5,7 @@ import { RANK, STAGES, fieldsOf } from '../lib/registry';
 export function RepairView({ ctx }) {
   const fields = fieldsOf(ctx.config, 'repair'); const reqs = useRows(ctx, 'requests'); const reps = useRows(ctx, 'repairs');
   const [form, setForm] = useState(null); // {req} | {row}
-  const can = RANK[ctx.role] >= 2; const waiting = reqs.filter((r) => r.status === 'approved');
+  const can = RANK[ctx.role] >= 2; const waiting = reqs.filter((r) => ['approved', 'open'].includes(r.status));
   const keys = fields.map((f) => f.key);
   const start = (req) => setForm({ req, initial: Object.fromEntries(Object.entries(req).filter(([k]) => keys.includes(k))) });
   const save = async (v) => {

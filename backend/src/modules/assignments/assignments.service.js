@@ -99,7 +99,7 @@ export async function createAssignment(siteId, body, userId) {
     const [request] = await tx.select().from(requests)
       .where(and(eq(requests.siteId, siteId), eq(requests.id, body.requestId))).for('update').limit(1);
     if (!request) throw new ApiError(404, 'Request not found');
-    if (request.status !== 'approved') throw new ApiError(409, `${request.requestNumber} is ${request.status}; it must be approved before assignment`);
+    if (!['approved', 'open'].includes(request.status)) throw new ApiError(409, `${request.requestNumber} is ${request.status}; it must be approved before assignment`);
 
     let [requestItem] = await tx.select().from(requestItems)
       .where(and(eq(requestItems.siteId, siteId), eq(requestItems.requestId, request.id))).limit(1);

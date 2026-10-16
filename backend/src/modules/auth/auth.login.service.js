@@ -1,9 +1,9 @@
-import bcrypt from 'bcryptjs';
 import { asc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
 import { generateToken } from '../../lib/jwt.js';
+import { comparePassword } from '../../lib/password.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
@@ -19,7 +19,7 @@ export async function loginAccount(email, password) {
     isActive: users.isActive,
   }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
 
-  if (!user || !user.isActive || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (!user || !user.isActive || !(await comparePassword(password, user.passwordHash))) {
     throw new AppError(401, INVALID_CREDENTIALS);
   }
 

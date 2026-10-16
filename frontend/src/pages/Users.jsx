@@ -108,8 +108,8 @@ export default function Users() {
       toast.err('Enter a valid name and email address.');
       return;
     }
-    if (editForm.password && editForm.password.length < 12) {
-      toast.err('New passwords must be at least 12 characters.');
+    if (editForm.password && editForm.password.length < 6) {
+      toast.err('New passwords must be at least 6 characters.');
       return;
     }
     const input = {
@@ -180,7 +180,7 @@ export default function Users() {
                             <div className="min-w-48 space-y-2">
                               <input aria-label="Name" className="input" required value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
                               <input aria-label="Email" className="input" type="email" required value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} />
-                              <input aria-label="New password (optional)" className="input" type="password" minLength={12} placeholder="New password (optional)" autoComplete="new-password" value={editForm.password} onChange={(event) => setEditForm({ ...editForm, password: event.target.value })} />
+                              <input aria-label="New password (optional)" className="input" type="password" minLength={6} placeholder="New password (optional)" autoComplete="new-password" value={editForm.password} onChange={(event) => setEditForm({ ...editForm, password: event.target.value })} />
                             </div>
                           ) : (
                             <div><div className="font-medium">{user.name}</div><div className="text-xs muted">{user.email}</div>{!user.isActive && <span className="text-xs text-amber-400">Inactive</span>}</div>

@@ -11,7 +11,7 @@ export function Dashboard({ ctx }) {
     tiles.push(['SKUs', inv.length]); tiles.push(['Stock value', fmt(inv.reduce((a, r) => a + (r.total ?? r.qty * r.price ?? 0), 0))]);
     tiles.push(['Low stock', inv.filter((r) => r.reorder != null && r.qty <= r.reorder).length, 'at or below reorder level']);
   }
-  if (hasModule(ctx.config, 'request')) { tiles.push(['Pending requests', req.filter((r) => r.status === 'pending').length]); tiles.push(['Approved, waiting', req.filter((r) => r.status === 'approved').length]); }
+  if (hasModule(ctx.config, 'request')) { tiles.push(['Pending requests', req.filter((r) => r.status === 'pending').length]); tiles.push(['Ready for fulfillment', req.filter((r) => ['approved', 'open'].includes(r.status)).length]); }
   if (hasModule(ctx.config, 'assignment')) tiles.push(['Active assignments', asg.filter((a) => a.remaining > 0).length]);
   if (hasModule(ctx.config, 'consumption')) tiles.push(['Units consumed', con.reduce((a, r) => a + r.qty, 0)]);
   if (hasModule(ctx.config, 'repair')) { tiles.push(['Repairs in progress', rep.filter((r) => r.status !== 'completed').length]); tiles.push(['Repair revenue', fmt(rep.reduce((a, r) => a + (r.total || 0), 0))]); }

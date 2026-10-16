@@ -23,10 +23,10 @@ export function RequestView({ ctx }) {
         if (result) setOpen(null);
         return result;
       }} onCancel={() => setOpen(null)} />}
-      <select className="input" style={{ maxWidth: 200 }} value={st} onChange={(e) => setSt(e.target.value)}><option value="">All statuses</option>{['pending', 'approved', 'rejected', 'assigned', 'in-repair', 'closed'].map((s) => <option key={s}>{s}</option>)}</select>
+      <select className="input" style={{ maxWidth: 200 }} value={st} onChange={(e) => setSt(e.target.value)}><option value="">All statuses</option>{['open', 'pending', 'approved', 'rejected', 'assigned', 'in-repair', 'closed', 'cancelled'].map((s) => <option key={s}>{s}</option>)}</select>
       <DataTable rows={shown} columns={[{ key: 'requestNo', label: 'No' }, ...fields.filter((f) => f.type !== 'calc').map((f) => ({ label: f.label, render: (r) => fieldText(f, r, items) })),
         { label: 'Status', render: (r) => <><Badge v={r.status} />{r.status === 'pending' && steps.length > 1 && <span className="text-xs muted ml-2">step {r.step + 1}/{steps.length}</span>}</> }, { key: 'requestedBy', label: 'By' },
-        ...(RANK[ctx.role] >= 2 ? [{ label: 'Actions', render: (r) => <div className="flex gap-1">{r.status === 'pending' && <button className="btn btn-sm" onClick={() => setOpen(r)}>Edit</button>}{ctx.role === 'Admin' && <button className="btn btn-sm" onClick={() => confirm(`Delete ${r.requestNo}?`) && attempt(() => ctx.api.del('requests', r.id), 'Request deleted')}>Delete</button>}</div> }] : [])]} />
+        ...(RANK[ctx.role] >= 2 ? [{ label: 'Actions', render: (r) => <div className="flex gap-1">{['pending', 'open'].includes(r.status) && <button className="btn btn-sm" onClick={() => setOpen(r)}>Edit</button>}{ctx.role === 'Admin' && <button className="btn btn-sm" onClick={() => confirm(`Delete ${r.requestNo}?`) && attempt(() => ctx.api.del('requests', r.id), 'Request deleted')}>Delete</button>}</div> }] : [])]} />
     </Page>);
 }
 
@@ -105,7 +105,7 @@ export function AssignmentView({ ctx }) {
   const reqs = useRows(ctx, 'requests'); const items = useRows(ctx, 'inventory'); const asg = useRows(ctx, 'assignments');
   const key = itemKey(ctx.config); const fields = fieldsOf(ctx.config, 'request');
   const [f, setF] = useState({}); const [crash, setCrash] = useState(false);
-  const ready = reqs.filter((r) => r.status === 'approved'); const canAssign = RANK[ctx.role] >= 2;
+  const ready = reqs.filter((r) => ['approved', 'open'].includes(r.status)); const canAssign = RANK[ctx.role] >= 2;
 
   const onAssign = async (r, qty, assignee) => {
     if (isUuid(siteId)) {
