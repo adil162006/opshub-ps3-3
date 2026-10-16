@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
+import { MIN_PASSWORD_LENGTH } from '../../lib/password.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,8 +18,8 @@ export async function signupGlobalAdmin({ name, email, password }) {
   if (!EMAIL_PATTERN.test(normalizedEmail) || normalizedEmail.length > 320) {
     throw new AppError(422, 'A valid email is required');
   }
-  if (typeof password !== 'string' || password.length < 6) {
-    throw new AppError(422, 'password must be at least 12 characters');
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+    throw new AppError(422, `password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
 
   const [existingUser] = await db.select({ id: users.id })
