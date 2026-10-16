@@ -22,7 +22,7 @@ CREATE POLICY site_isolation ON inventory
   USING (site_id = current_setting('app.site_id'));  -- SET LOCAL per request`;
 export default function Catalogue() {
   return (
-    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>>
+    <div className="themed min-h-[calc(100vh-48px)]" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <Page title="Module catalogue & architecture" sub="13 approved modules as typed nodes. Scope is frozen.">
         <div className="card p-4"><div className="lbl">Architecture</div>
           <div className="flex items-stretch gap-2 flex-wrap text-sm mt-2">{[['Hub', 'JWT login · site switcher · users · catalogue'], ['Builder', 'React Flow canvas · typed nodes · presets · publish / rollback'], ['Renderer + API', '/api/:siteId/:resource · RBAC · site_id scope · transactions'], ['PostgreSQL', 'site_id on every table · RLS · JSONB site config']].map(([t, d], i, a) => (

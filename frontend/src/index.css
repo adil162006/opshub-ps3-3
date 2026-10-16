@@ -10,9 +10,9 @@
   /* — Core palette (Lovable design) — */
   --background:         oklch(0.145 0.012 260);
   --foreground:         oklch(0.93 0.01 250);
-  --card:               oklch(0.185 0.015 260);
+  --card:               oklch(0.205 0.016 260);
   --card-foreground:    oklch(0.93 0.01 250);
-  --popover:            oklch(0.20 0.015 260);
+  --popover:            oklch(0.205 0.016 260);
   --popover-foreground: oklch(0.93 0.01 250);
 
   --primary:            oklch(0.82 0.16 85);
@@ -30,7 +30,7 @@
   --destructive:            oklch(0.62 0.22 25);
   --destructive-foreground: oklch(0.97 0.01 250);
 
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 14%);
   --input:  oklch(1 0 0 / 14%);
   --ring:   oklch(0.82 0.16 85);
 
@@ -65,6 +65,19 @@
   }
 }
 
+/* ── All dropdown options: ensure high-contrast black text ── */
+select {
+  color-scheme: light;
+}
+
+select option,
+select optgroup,
+option,
+optgroup {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
 /* ── Legacy utility classes (used by ui.jsx) ─── */
 .themed  { background: var(--background); color: var(--foreground); }
 
@@ -72,6 +85,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.35);
 }
 
 .muted { color: var(--muted-foreground); }
