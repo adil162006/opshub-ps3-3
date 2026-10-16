@@ -15,6 +15,7 @@ import analyticsRoutes from './modules/analytics/analytics.routes.js';
 import inventoryRoutes from './modules/inventory/inventory.routes.js';
 import assignmentsRoutes from './modules/assignments/assignments.routes.js';
 import consumptionRoutes from './modules/consumption/consumption.routes.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 
 const app = express();
@@ -38,6 +39,9 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', analyticsRoutes);
+app.use('/api', authRoutes);
+app.use('/api', usersRoutes);
+app.use('/api', reportsRoutes);
 app.use('/api', inventoryRoutes);
 app.use('/api', assignmentsRoutes);
 app.use('/api', consumptionRoutes);
@@ -47,11 +51,7 @@ app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+app.use(errorHandler);
 
 app.use(errorHandler);
 

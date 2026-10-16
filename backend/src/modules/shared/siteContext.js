@@ -41,7 +41,7 @@ export function requireRole(role, minimum) {
 export function configNode(config, type) {
   return config.nodes?.find((node) => node?.data?.type === type) || null;
 import { siteMembers, siteVersions, sites, users } from '../../db/schema/index.js';
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 
 const roleRank = { Public: 0, Member: 1, Manager: 2, Admin: 3 };
 const moduleNames = {

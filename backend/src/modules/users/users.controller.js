@@ -7,15 +7,34 @@ function checkSiteId(req) {
   if (!isUuid(req.params.siteId)) throw new AppError(400, 'siteId must be a valid UUID');
 }
 
+function checkUserId(req) {
+  if (!isUuid(req.params.userId)) throw new AppError(400, 'userId must be a valid UUID');
+}
+
+function checkBody(req) {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    throw new AppError(422, 'A JSON request body is required');
+  }
+}
+
 export async function getUsers(req, res) {
   res.json(await listUsersForGlobalAdmin(req.user.id, req.query));
 }
 
 export async function postUser(req, res) {
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
-    throw new AppError(422, 'A JSON request body is required');
-  }
-  res.status(201).json(await createUserByGlobalAdmin(req.user.id, req.body));
+  checkBody(req);
+  res.status(201).json(await manageUser({ actorId: req.user.id, action: 'add', scope: 'global', input: req.body }));
+}
+
+export async function putUser(req, res) {
+  checkUserId(req);
+  checkBody(req);
+  res.json(await manageUser({ actorId: req.user.id, action: 'update', scope: 'global', userId: req.params.userId, input: req.body }));
+}
+
+export async function deleteUser(req, res) {
+  checkUserId(req);
+  res.json(await manageUser({ actorId: req.user.id, action: 'delete', scope: 'global', userId: req.params.userId }));
 }
 
 export async function getSiteUsers(req, res) {
@@ -25,8 +44,19 @@ export async function getSiteUsers(req, res) {
 
 export async function postSiteUser(req, res) {
   checkSiteId(req);
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
-    throw new AppError(422, 'A JSON request body is required');
-  }
-  res.status(201).json(await addSiteUser(req.params.siteId, req.user.id, req.body));
+  checkBody(req);
+  res.status(201).json(await manageUser({ actorId: req.user.id, action: 'add', scope: 'site', siteId: req.params.siteId, input: req.body }));
+}
+
+export async function putSiteUser(req, res) {
+  checkSiteId(req);
+  checkUserId(req);
+  checkBody(req);
+  res.json(await manageUser({ actorId: req.user.id, action: 'update', scope: 'site', siteId: req.params.siteId, userId: req.params.userId, input: req.body }));
+}
+
+export async function deleteSiteUser(req, res) {
+  checkSiteId(req);
+  checkUserId(req);
+  res.json(await manageUser({ actorId: req.user.id, action: 'delete', scope: 'site', siteId: req.params.siteId, userId: req.params.userId }));
 }

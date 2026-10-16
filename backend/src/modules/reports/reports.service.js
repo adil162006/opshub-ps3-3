@@ -5,7 +5,7 @@ import {
   approvals, assignmentItems, assignments, categories, consumptionRecords, items,
   repairRecords, requests, returnItems, returns, sites, users,
 } from '../../db/schema/index.js';
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 import { configNode, getSiteContext, requireRole } from '../shared/siteContext.js';
 
 const resourceModules = {

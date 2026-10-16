@@ -36,7 +36,63 @@ function normalizeMemberships(input) {
   });
 }
 
-export async function createUserByGlobalAdmin(actorId, input) {
+/**
+ * Single mutation entry point for account and site-membership changes.
+ * Global scope manages accounts; site scope manages that site's membership.
+ */
+export async function manageUser({ actorId, action, scope = 'global', siteId, userId, input = {} }) {
+  if (!['add', 'update', 'delete'].includes(action)) throw new AppError(400, 'Unsupported user action');
+  if (!['global', 'site'].includes(scope)) throw new AppError(400, 'Unsupported user scope');
+
+  if (scope === 'site') {
+    const context = await getSiteContext(db, siteId, actorId, ['users']);
+    requireRole(context.role, action === 'add' ? 'Manager' : 'Admin');
+
+    if (action === 'add') return addSiteUserImpl(siteId, actorId, input, context.role);
+    const [membership] = await db.select({ userId: siteMembers.userId, role: siteMembers.role })
+      .from(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId))).limit(1);
+    if (!membership) throw new AppError(404, 'Site user not found');
+    if (membership.role === 'Admin' && context.role !== 'Admin') throw new AppError(403, 'Only a site Admin can manage another Admin');
+    if (action === 'delete') {
+      await db.delete(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId)));
+      return { userId, siteId, removed: true };
+    }
+    const role = input.role;
+    if (!SITE_ROLES.has(role)) throw new AppError(422, 'Site role must be Member, Manager or Admin');
+    const [updated] = await db.update(siteMembers).set({ role })
+      .where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId)))
+      .returning({ userId: siteMembers.userId, siteId: siteMembers.siteId, role: siteMembers.role });
+    return updated;
+  }
+
+  await requireGlobalAdmin(actorId);
+  if (action === 'add') return createGlobalUserImpl(actorId, input);
+  const [target] = await db.select({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin })
+    .from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) throw new AppError(404, 'User not found');
+  if (target.isHubAdmin) throw new AppError(403, 'Global administrator accounts cannot be changed here');
+  if (action === 'delete') {
+    await db.delete(users).where(eq(users.id, userId));
+    return { userId, deleted: true };
+  }
+  const updates = {};
+  if (input.name !== undefined) {
+    if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 160) throw new AppError(422, 'name must be 1 to 160 characters');
+    updates.name = input.name.trim();
+  }
+  if (input.email !== undefined) {
+    const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+    if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
+    updates.email = email;
+  }
+  if (!Object.keys(updates).length) throw new AppError(422, 'Provide name or email to update');
+  updates.updatedAt = new Date();
+  const [updated] = await db.update(users).set(updates).where(eq(users.id, userId))
+    .returning({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin, isActive: users.isActive });
+  return updated;
+}
+
+async function createGlobalUserImpl(actorId, input) {
   await requireGlobalAdmin(actorId);
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
@@ -83,6 +139,15 @@ export async function createUserByGlobalAdmin(actorId, input) {
   };
 }
 
+// Compatibility exports keep existing route/controller call sites using the same mutation logic.
+export const createUserByGlobalAdmin = (actorId, input) => manageUser({ actorId, action: 'add', scope: 'global', input });
+export const addSiteUser = (siteId, actorId, input) => manageUser({ actorId, action: 'add', scope: 'site', siteId, input });
+
+async function addSiteUserImpl(siteId, actorId, input, actorRole) {
+  // Existing site-user creation flow is shared by global/site add entry points.
+  return createSiteUserForManager(siteId, actorId, input, actorRole);
+}
+
 export async function listUsersForGlobalAdmin(actorId, query = {}) {
   await requireGlobalAdmin(actorId);
   const page = positiveInteger(query.page, 1);
@@ -127,7 +192,7 @@ export async function listSiteUsers(siteId, actorId) {
   return { siteId, users: rows };
 }
 
-export async function addSiteUser(siteId, actorId, input) {
+async function createSiteUserForManager(siteId, actorId, input, actorRoleOverride) {
   const context = await getSiteContext(db, siteId, actorId, ['users']);
   requireRole(context.role, 'Manager');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
@@ -137,7 +202,7 @@ export async function addSiteUser(siteId, actorId, input) {
 
   const role = input.role || 'Member';
   if (!SITE_ROLES.has(role)) throw new AppError(422, 'Site role must be Member, Manager or Admin');
-  if (context.role === 'Manager' && role !== 'Member') {
+  if ((actorRoleOverride || context.role) === 'Manager' && role !== 'Member') {
     throw new AppError(403, 'Managers can add users as Member; only site Admins can grant elevated roles');
   }
   const [site] = await db.select({ id: sites.id, name: sites.name }).from(sites).where(eq(sites.id, siteId)).limit(1);
