@@ -10,12 +10,12 @@ import { Badge, attempt, toast, when } from '../ui';
 function ModuleNode({ data, selected }) {
   const m = MODULES[data.type]; const bad = data.issues?.length;
   return (
-    <div className="bg-white rounded-xl shadow-md px-3 py-2 w-52 text-slate-800" style={{ border: `2px solid ${selected ? '#4f46e5' : bad ? '#f87171' : '#e2e8f0'}` }}>
+    <div className="rounded-xl shadow-md px-3 py-2 w-52" style={{ background: 'var(--card)', border: `2px solid ${selected ? 'oklch(0.82 0.16 85)' : bad ? 'var(--destructive)' : 'var(--border)'}`, color: 'var(--foreground)' }}>
       <Handle type="target" position={Position.Left} /><Handle type="source" position={Position.Right} />
       <div className="flex items-center gap-2"><span className="text-lg">{m.icon}</span><div className="text-sm font-semibold leading-tight">{m.name}</div></div>
-      <div className="text-[10px] text-slate-500 mt-1">in: {accepts(data.type).map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
-      <div className="text-[10px] text-slate-500">out: {m.outputs.map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
-      {bad ? <div className="text-[10px] text-red-600 mt-1">⚠ {data.issues[0]}</div> : <div className="text-[10px] text-emerald-600 mt-1">✓ inputs satisfied</div>}
+      <div className="text-[10px] mt-1" style={{ color: 'var(--muted-foreground)' }}>in: {accepts(data.type).map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
+      <div className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>out: {m.outputs.map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
+      {bad ? <div className="text-[10px] mt-1" style={{ color: 'var(--destructive)' }}>⚠ {data.issues[0]}</div> : <div className="text-[10px] mt-1" style={{ color: 'var(--success)' }}>✓ inputs satisfied</div>}
     </div>);
 }
 const nodeTypes = { module: ModuleNode };
@@ -80,26 +80,24 @@ function Canvas({ site }) {
   const typesOf = (ver) => new Set(ver.nodes.map((n) => n.data.type));
   const diff = (ver, i, arr) => { const prev = arr[i + 1]; if (!prev) return []; const a = typesOf(ver); const b = typesOf(prev); return [...[...a].filter((t) => !b.has(t)).map((t) => `+${MODULES[t].page?.title || t}`), ...[...b].filter((t) => !a.has(t)).map((t) => `−${MODULES[t].page?.title || t}`)]; };
   const versions = [...site.versions].sort((a, b) => b.v - a.v);
-  const T = ({ k, children }) => <button onClick={() => setTab(k)} className="px-3 py-1.5 text-sm" style={{ borderBottom: tab === k ? '2px solid #4f46e5' : '2px solid transparent', fontWeight: tab === k ? 600 : 400 }}>{children}</button>;
+  const T = ({ k, children }) => <button onClick={() => setTab(k)} className="px-3 py-1.5 text-sm" style={{ borderBottom: tab === k ? '2px solid oklch(0.82 0.16 85)' : '2px solid transparent', color: tab === k ? 'var(--foreground)' : 'var(--muted-foreground)', fontWeight: tab === k ? 600 : 400 }}>{children}</button>;
   const th = (k, val) => setTheme((t) => ({ ...t, [k]: val }));
 
   return (
-    <div className="themed flex" style={{ height: 'calc(100vh - 48px)', background: '#f6f7fb', color: '#0f172a' }}>
-      <aside className="w-56 shrink-0 border-r bg-white p-3 overflow-y-auto">
+    <div className="themed flex" style={{ height: 'calc(100vh - 48px)', background: 'var(--background)', color: 'var(--foreground)' }}>
+      <aside className="w-56 shrink-0 p-3 overflow-y-auto" style={{ borderRight: '1px solid var(--border)', background: 'var(--card)' }}>
         <div className="lbl">Module palette</div><p className="text-[11px] muted mb-2">Drag onto canvas or click. 13 approved modules.</p>
         {['Core', 'Stock', 'Workflow', 'Tracking', 'Insight'].map((g) => (
-          <div key={g} className="mb-3"><div className="text-[10px] font-semibold text-slate-400 uppercase mb-1">{g}</div>
-            {ORDER.filter((t) => MODULES[t].group === g).map((t) => {
-              const used = nodes.some((n) => n.data.type === t); return (
-                <div key={t} draggable={!used} onDragStart={(e) => e.dataTransfer.setData('application/opshub', t)} onClick={() => !used && addModule(t)} title={MODULES[t].desc}
-                  className={`text-sm px-2 py-1.5 rounded-lg mb-1 border ${used ? 'opacity-40' : 'cursor-grab hover:bg-indigo-50'}`}>{MODULES[t].icon} {MODULES[t].name}</div>);
-            })}</div>))}
+          <div key={g} className="mb-3"><div className="text-[10px] font-semibold uppercase mb-1" style={{ color: 'var(--muted-foreground)', letterSpacing: '0.08em' }}>{g}</div>
+            {ORDER.filter((t) => MODULES[t].group === g).map((t) => { const used = nodes.some((n) => n.data.type === t); return (
+              <div key={t} draggable={!used} onDragStart={(e) => e.dataTransfer.setData('application/opshub', t)} onClick={() => !used && addModule(t)} title={MODULES[t].desc}
+                className={`text-sm px-2 py-1.5 rounded-lg mb-1 transition-colors ${used ? 'opacity-40' : 'cursor-grab'}`} style={{ border: '1px solid var(--border)', background: used ? 'transparent' : 'var(--secondary)' }}>{MODULES[t].icon} {MODULES[t].name}</div>); })}</div>))}
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="bg-white border-b px-3 py-2 flex items-center gap-2 flex-wrap text-sm">
+        <div className="px-3 py-2 flex items-center gap-2 flex-wrap text-sm" style={{ borderBottom: '1px solid var(--border)', background: 'var(--card)' }}>
           <b>{site.name}</b><span className="muted">/{site.slug}</span>
           <select className="input" style={{ width: 150 }} value={preset} onChange={(e) => setPreset(e.target.value)}>{Object.keys(PRESETS).map((p) => <option key={p}>{p}</option>)}</select><button className="btn btn-sm" onClick={applyPreset}>Load preset</button>
-          <span className={`px-2 py-0.5 rounded-full text-xs ${v.errors.length ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{v.errors.length ? `${v.errors.length} issue${v.errors.length > 1 ? 's' : ''}` : 'Valid'}</span>
+          <span className={`px-2 py-0.5 rounded-full text-xs ${v.errors.length ? 'bg-red-400/15 text-red-300' : 'bg-emerald-400/15 text-emerald-300'}`}>{v.errors.length ? `${v.errors.length} issue${v.errors.length > 1 ? 's' : ''}` : 'Valid'}</span>
           <span className="text-xs muted">{saved ? 'Draft saved' : 'Saving…'}</span>
           <div className="ml-auto flex gap-2"><button className="btn" onClick={() => { dirty.current = true; save(); nav(`/preview/${site.slug}`); }}>👁 Preview draft</button><Link className="btn" to={`/s/${site.slug}`}>Open live ↗</Link></div>
         </div>
@@ -109,7 +107,7 @@ function Canvas({ site }) {
           </ReactFlow>
         </div>
       </div>
-      <aside className="w-80 shrink-0 border-l bg-white flex flex-col">
+      <aside className="w-80 shrink-0 flex flex-col" style={{ borderLeft: '1px solid var(--border)', background: 'var(--card)' }}>
         <div className="flex border-b"><T k="config">Config</T><T k="theme">Theme</T><T k="releases">Releases</T></div>
         <div className="p-3 overflow-y-auto flex-1 space-y-3 text-sm">
           {tab === 'config' && (sel ? (
@@ -128,7 +126,7 @@ function Canvas({ site }) {
             <>
               <p className="muted text-xs">Select a module to configure it. Connect nodes by dragging from one handle to another — links are typed, so e.g. Approval needs a Request.</p>
               <div className="lbl">Validation</div>
-              {v.errors.length ? v.errors.map((e) => <div key={e} className="text-xs text-red-600">⚠ {e}</div>) : <div className="text-xs text-green-700">✓ Ready to publish</div>}
+              {v.errors.length ? v.errors.map((e) => <div key={e} className="text-xs" style={{ color: 'var(--destructive)' }}>⚠ {e}</div>) : <div className="text-xs" style={{ color: 'var(--success)' }}>✓ Ready to publish</div>}
             </>))}
           {tab === 'theme' && (
             <div className="space-y-3">
@@ -158,7 +156,7 @@ function Canvas({ site }) {
 
 export function BuilderEditor() {
   const { slug } = useParams(); const site = useDB((s) => s.sites.find((x) => x.slug === slug));
-  if (!site) return <div className="p-10 text-white">Site not found</div>;
+  if (!site) return <div className="p-10" style={{ color: 'var(--foreground)' }}>Site not found</div>;
   return <ReactFlowProvider><Canvas key={site.id} site={site} /></ReactFlowProvider>;
 }
 
@@ -166,7 +164,7 @@ export function BuilderIndex() {
   const sites = useDB((s) => s.sites); const nav = useNavigate();
   const [f, setF] = useState({ name: '', slug: '', preset: Object.keys(PRESETS)[0] });
   return (
-    <div className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: '#f6f7fb', color: '#0f172a' }}>
+    <div className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
       <div className="max-w-4xl mx-auto space-y-4">
         <h1 className="text-xl font-semibold">Site builder</h1>
         <div className="grid md:grid-cols-3 gap-3">{sites.map((s) => <Link key={s.id} to={`/builder/${s.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{s.name}</div><div className="text-xs muted">/{s.slug} · live v{s.live} · {s.draft.nodes.length} modules</div></Link>)}</div>
