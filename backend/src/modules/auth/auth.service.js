@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 import { generateToken } from '../../lib/jwt.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';

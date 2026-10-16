@@ -1,4 +1,4 @@
-import { AppError } from '../../lib/AppError.js';
+import { ApiError as AppError } from '../../lib/ApiError.js';
 import { getCurrentUser, loginGlobalAdmin } from './auth.service.js';
 
 export async function loginGlobalAdminController(req, res) {
