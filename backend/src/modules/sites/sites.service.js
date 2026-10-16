@@ -62,8 +62,8 @@ function validateDraft(config) {
   return config;
 }
 
-function publicSite(site, role, config) {
-  return { id: site.id, slug: site.slug, name: site.name, description: site.description || '', live: site.liveVersion ?? null,
+function publicSite(site, role, config, liveVersion = null) {
+  return { id: site.id, slug: site.slug, name: site.name, description: site.description || '', live: liveVersion,
     role, theme: config?.theme || {}, moduleTypes: (config?.nodes || []).map((node) => node.data.type) };
 }
 
@@ -83,12 +83,16 @@ export async function listSites(actorId) {
   const result = [];
   for (const row of rows) {
     let config = { nodes: [], edges: [], theme: row.site.theme };
+    let liveVersion = null;
     if (row.site.liveVersionId) {
-      const [version] = await db.select({ config: siteVersions.config }).from(siteVersions)
+      const [version] = await db.select({ config: siteVersions.config, version: siteVersions.version }).from(siteVersions)
         .where(and(eq(siteVersions.siteId, row.site.id), eq(siteVersions.id, row.site.liveVersionId))).limit(1);
-      if (version) config = version.config;
+      if (version) {
+        config = version.config;
+        liveVersion = version.version;
+      }
     }
-    result.push(publicSite(row.site, row.role, config));
+    result.push(publicSite(row.site, row.role, config, liveVersion));
   }
   return result;
 }
@@ -107,7 +111,7 @@ export async function getSite(siteId, actorId, preview = false) {
     live = version?.config || live;
   }
   if (context.role === 'Admin') {
-    versions = await db.select({ version: siteVersions.version, config: siteVersions.config, note: siteVersions.note, createdAt: siteVersions.createdAt, createdBy: users.name })
+    versions = await db.select({ id: siteVersions.id, version: siteVersions.version, config: siteVersions.config, note: siteVersions.note, createdAt: siteVersions.createdAt, createdBy: users.name })
       .from(siteVersions).leftJoin(users, eq(users.id, siteVersions.createdBy)).where(eq(siteVersions.siteId, siteId)).orderBy(desc(siteVersions.version));
     deploys = await db.select({ id: deployments.id, action: deployments.action, versionId: deployments.versionId, note: deployments.note, createdAt: deployments.createdAt, deployedBy: users.name })
       .from(deployments).leftJoin(users, eq(users.id, deployments.deployedBy)).where(eq(deployments.siteId, siteId)).orderBy(desc(deployments.createdAt));
