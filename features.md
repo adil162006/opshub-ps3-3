@@ -36,22 +36,24 @@ The frontend README describes the prototype and demo accounts: [frontend/README.
 - **Proposal documentation is incomplete.** The in-app catalogue gives an architecture overview, module list, API outline, and abbreviated schema, but the requested complete architecture diagram, data model/API design, and project README still need to be delivered and aligned with the real backend.
 - **No end-to-end tests exercise a real browser-to-API-to-PostgreSQL deployment.**
 
-## Backend: pending implementation
+## Backend: implementation in progress
 
-The backend is **not implemented**. `backend/src/server.js` has no server or route implementation, and `backend/src/db/index.js` only creates a PostgreSQL pool and Drizzle client. Backend dependencies and database scripts exist, but they do not by themselves provide a working service.
+The backend now has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for the operational workflows. It has not yet been validated against a running PostgreSQL instance, and it is not wired to the frontend's default browser-local API.
 
-- [ ] Implement and start the Express application, configuration loading, CORS policy, health endpoint, error handling, and graceful database shutdown.
-- [ ] Define the Drizzle schema and migrations for users, sites, site memberships, site versions/deploy history, inventory, requests, approvals, assignments, consumption, returns, and repairs.
-- [ ] Implement server-side password hashing/verification, JWT issuance and verification, authentication middleware, and the Public/Member/Manager/Admin permission matrix.
-- [ ] Implement all required REST routes: login/current user; list/create/read sites; draft, publish, preview, releases, and rollback; global users and site members; and scoped CRUD/workflow routes for every enabled resource.
-- [ ] Enforce `site_id` on every business query and write at the API/ORM layer; enforce tenant isolation in PostgreSQL with row-level security on **every** business table and same-site foreign keys.
-- [ ] Implement workflow transitions and authorization on the server, including approval-chain steps, assignment, consumption, returns, and repair lifecycle.
-- [ ] Make assignment stock decrement, request state changes, and assignment creation a single PostgreSQL transaction; handle concurrent assignments safely and test rollback and insufficient-stock cases.
-- [ ] Persist builder JSON configuration as JSONB; validate typed module connections and field schemas server-side; implement versioned publish, preview, rollback, and deploy history.
-- [ ] Implement validated, role-restricted Excel import/export endpoints, including atomic inventory upsert behavior.
-- [ ] Connect the frontend to the real HTTP API and PostgreSQL-backed authentication/data; remove reliance on the simulated API for deployed behavior while retaining an explicit demo/offline mode if required.
-- [ ] Add backend unit/integration tests for authentication, roles, endpoint coverage, transactions, and cross-site isolation against PostgreSQL. The current backend `test` script is only a placeholder.
-- [ ] Provide repeatable local setup, environment-variable documentation/example, migrations/seeding, and an offline demo backup.
+- [x] Implement Express startup, environment loading, configurable CORS origins, liveness/readiness endpoints, centralized errors, and graceful database shutdown.
+- [x] Define Drizzle tables and migrations for users, sites, site memberships, versions/deploy history, inventory, requests, approvals, assignments, consumption, returns, repairs, reports jobs, and audit data.
+- [x] Implement server-side password hashing, JWT issuance/verification, authentication middleware, and database-backed role checks.
+- [x] Implement REST routes for login/current user; sites; draft, publish, preview, versions, rollback; global users and site members; and the operational resources.
+- [x] Scope service queries by site and use same-site foreign keys for business record references.
+- [x] Implement approval-chain transitions, assignment, consumption, returns, and repair lifecycle services.
+- [x] Make assignment stock decrement, request state change, stock movement, and assignment creation transactional with row locks and quantity guards.
+- [x] Persist draft and published configuration as JSONB, validate module connections/fields, and store versioned publish/rollback history.
+- [x] Implement role-restricted spreadsheet export and atomic inventory import paths.
+- [x] Provide backend environment example, setup documentation, repeatable migrations, and initial site configuration seeding.
+- [ ] Enforce tenant isolation in PostgreSQL with row-level security on every business table. API-level site scoping and same-site foreign keys are present, but database RLS policies are not yet installed.
+- [ ] Connect the frontend to the real HTTP API and PostgreSQL-backed authentication/data; deployed behavior still relies on the browser simulator.
+- [ ] Add backend unit/integration tests for authentication, permissions, endpoint coverage, transaction rollback/concurrency, and cross-site isolation against PostgreSQL. The backend `test` script remains a placeholder.
+- [ ] Verify the migrations and seed against a real PostgreSQL instance and complete the browser-to-API-to-database demo.
 
 ## Delivery checks still required
 

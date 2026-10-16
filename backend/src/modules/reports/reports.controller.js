@@ -1,5 +1,6 @@
 import { ApiError as AppError } from '../../lib/ApiError.js';
 import { createExport, importInventory } from './reports.service.js';
+import { importItems } from '../inventory/inventory.service.js';
 
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
 
@@ -17,6 +18,9 @@ export async function exportReport(req, res) {
 
 export async function importInventoryWorkbook(req, res) {
   checkSiteId(req);
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && Array.isArray(req.body.rows)) {
+    return res.json(await importItems(req.params.siteId, req.body.rows, req.user.id));
+  }
   const result = await importInventory(req.params.siteId, req.user.id, req.body);
   res.json(result);
 }

@@ -4,7 +4,9 @@ import { listConsumptionHandler, recordConsumptionHandler } from './consumption.
 
 const router = Router();
 
-router.get('/sites/:siteId/consumption', requireAuth, listConsumptionHandler);
-router.post('/sites/:siteId/consumption', requireAuth, recordConsumptionHandler);
+for (const prefix of ['/:siteId', '/sites/:siteId']) {
+  router.get(`${prefix}/consumption`, requireAuth, listConsumptionHandler);
+  router.post(`${prefix}/consumption`, requireAuth, recordConsumptionHandler);
+}
 
 export default router;

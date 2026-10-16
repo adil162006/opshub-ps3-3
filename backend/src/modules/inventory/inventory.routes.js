@@ -9,24 +9,21 @@ import {
 
 const router = Router();
 
-// inventory
-router.get('/sites/:siteId/inventory/export', requireAuth, exportInventory);
-router.get('/sites/:siteId/inventory/template', requireAuth, inventoryTemplate);
-router.get('/sites/:siteId/inventory', requireAuth, listInventory);
-router.get('/sites/:siteId/inventory/:id', requireAuth, getInventoryItem);
-router.post('/sites/:siteId/inventory', requireAuth, createInventoryItem);
-router.put('/sites/:siteId/inventory/:id', requireAuth, updateInventoryItem);
-router.delete('/sites/:siteId/inventory/:id', requireAuth, deleteInventoryItem);
-router.post('/sites/:siteId/inventory/import', requireAuth, importInventory);
-
-// categories
-router.get('/sites/:siteId/categories', requireAuth, listCategoriesHandler);
-router.post('/sites/:siteId/categories', requireAuth, createCategoryHandler);
-router.put('/sites/:siteId/categories/:id', requireAuth, updateCategoryHandler);
-router.delete('/sites/:siteId/categories/:id', requireAuth, deleteCategoryHandler);
-
-// stock movements
-router.get('/sites/:siteId/stock-movements', requireAuth, listStockMovementsHandler);
-router.post('/sites/:siteId/stock-movements', requireAuth, recordStockMovementHandler);
+for (const prefix of ['/:siteId', '/sites/:siteId']) {
+  router.get(`${prefix}/inventory/export`, requireAuth, exportInventory);
+  router.get(`${prefix}/inventory/template`, requireAuth, inventoryTemplate);
+  router.get(`${prefix}/inventory`, requireAuth, listInventory);
+  router.get(`${prefix}/inventory/:id`, requireAuth, getInventoryItem);
+  router.post(`${prefix}/inventory`, requireAuth, createInventoryItem);
+  router.put(`${prefix}/inventory/:id`, requireAuth, updateInventoryItem);
+  router.delete(`${prefix}/inventory/:id`, requireAuth, deleteInventoryItem);
+  router.post(`${prefix}/inventory/import`, requireAuth, importInventory);
+  router.get(`${prefix}/categories`, requireAuth, listCategoriesHandler);
+  router.post(`${prefix}/categories`, requireAuth, createCategoryHandler);
+  router.put(`${prefix}/categories/:id`, requireAuth, updateCategoryHandler);
+  router.delete(`${prefix}/categories/:id`, requireAuth, deleteCategoryHandler);
+  router.get(`${prefix}/stock-movements`, requireAuth, listStockMovementsHandler);
+  router.post(`${prefix}/stock-movements`, requireAuth, recordStockMovementHandler);
+}
 
 export default router;

@@ -1,5 +1,5 @@
 import { ApiError as AppError } from '../../lib/ApiError.js';
-import { addSiteUser, createUserByGlobalAdmin, listSiteUsers, listUsersForGlobalAdmin } from './users.service.js';
+import { listSiteUsers, listUsersForGlobalAdmin, manageUser } from './users.service.js';
 
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || '');
 

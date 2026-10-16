@@ -20,7 +20,7 @@ export async function listConsumptionHandler(req, res, next) {
     if (assignmentItemId && !validUuid(assignmentItemId)) {
       return res.status(400).json({ error: 'assignmentItemId must be a valid UUID' });
     }
-    const rows = await listConsumption(req.params.siteId, assignmentItemId || null);
+    const rows = await listConsumption(req.params.siteId, assignmentItemId || null, req.user.id);
     return res.json(rows);
   } catch (err) { return next(err); }
 }
@@ -29,14 +29,18 @@ export async function recordConsumptionHandler(req, res, next) {
   try {
     const role = await resolveRole(req, res, 1);
     if (!role) return;
-    const { assignmentItemId, quantity } = req.body;
-    if (!assignmentItemId || quantity === undefined) {
-      return res.status(422).json({ error: 'assignmentItemId and quantity are required' });
+    const body = req.body || {};
+    const assignmentItemId = body.assignmentItemId;
+    const assignmentId = body.assignmentId;
+    const quantity = body.qty ?? body.quantity;
+    if ((!assignmentItemId && !assignmentId) || quantity === undefined) {
+      return res.status(422).json({ error: 'assignmentId and qty are required' });
     }
-    if (!validUuid(assignmentItemId)) {
+    if (assignmentItemId && !validUuid(assignmentItemId)) {
       return res.status(400).json({ error: 'assignmentItemId must be a valid UUID' });
     }
-    const result = await recordConsumption(req.params.siteId, req.body, req.user.id);
+    if (assignmentId && !validUuid(assignmentId)) return res.status(400).json({ error: 'assignmentId must be a valid UUID' });
+    const result = await recordConsumption(req.params.siteId, body, req.user.id);
     return res.status(201).json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

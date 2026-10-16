@@ -2,8 +2,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
   assignmentItems, assignments, categories, consumptionRecords, items,
-  repairRecords, requests, returns, siteMembers, siteVersions, sites, users,
+  repairRecords, requests, returns, users,
 } from '../../db/schema/index.js';
+import { getSiteContext } from '../shared/siteContext.js';
 
 const round = (value) => Math.round(Number(value || 0) * 100) / 100;
 const rowsToSeries = (rows, nameKey, valueKey = 'value') => rows.map((row) => ({
@@ -11,31 +12,10 @@ const rowsToSeries = (rows, nameKey, valueKey = 'value') => rows.map((row) => ({
 }));
 const enabledTypes = (config) => new Set((config?.nodes || []).map((node) => node?.data?.type).filter(Boolean));
 
-async function readSiteConfig(siteId) {
-  const [site] = await db.select({ liveVersionId: sites.liveVersionId })
-    .from(sites).where(eq(sites.id, siteId)).limit(1);
-  if (!site) return null;
-  if (!site.liveVersionId) return { nodes: [] };
-  const [version] = await db.select({ config: siteVersions.config }).from(siteVersions)
-    .where(and(eq(siteVersions.siteId, siteId), eq(siteVersions.id, site.liveVersionId))).limit(1);
-  return version?.config || { nodes: [] };
-}
-
 /** Build per-site dashboard metrics from that site's enabled business modules. */
 export async function getSiteAnalytics(siteId, userId) {
-  const [membership] = await db.select({ role: siteMembers.role }).from(siteMembers)
-    .where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, userId))).limit(1);
-  if (!membership) {
-    const [site] = await db.select({ id: sites.id }).from(sites).where(eq(sites.id, siteId)).limit(1);
-    if (!site) return null;
-    const [user] = await db.select({ isHubAdmin: users.isHubAdmin }).from(users).where(eq(users.id, userId)).limit(1);
-    if (!user?.isHubAdmin) return { forbidden: true };
-  }
-
-  const config = await readSiteConfig(siteId);
-  if (!config) return null;
+  const { config } = await getSiteContext(db, siteId, userId, ['analytics']);
   const modules = enabledTypes(config);
-  if (!modules.has('analytics')) return { disabled: true };
   const data = {};
 
   if (modules.has('inventory')) {

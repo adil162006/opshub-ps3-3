@@ -1,6 +1,8 @@
 import { inArray, sql } from 'drizzle-orm';
 import { db, pool } from './index.js';
-import { modules, siteModules, sites } from './schema/index.js';
+import { deployments, modules, siteMembers, siteModules, siteVersions, sites, users } from './schema/index.js';
+import { DEFAULT_THEME, MODULES, PRESETS } from '../../../frontend/src/lib/registry.js';
+import { hashPassword } from '../lib/password.js';
 
 const moduleRegistry = [
   { key: 'auth_rbac', name: 'Authentication & RBAC', category: 'Core' },
@@ -69,6 +71,21 @@ const siteRegistry = [
   },
 ];
 
+const siteConfigs = {
+  'central-stores': () => ({ ...PRESETS['Inventory Starter'](), theme: { ...DEFAULT_THEME, primary: '#0369a1' } }),
+  'service-centre': () => ({ ...PRESETS['Repair Shop'](), theme: { ...DEFAULT_THEME, primary: '#9333ea', radius: 18 } }),
+  distribution: () => {
+    const config = PRESETS['Approval Chain']();
+    const node = (type, id) => ({ id, type: 'module', position: { x: 1440, y: type === 'returns' ? 60 : 220 }, data: { type, label: MODULES[type].name, config: {} } });
+    config.nodes.push(node('returns', 'returns-1'), node('reports', 'reports-1'));
+    config.edges.push(
+      { id: 'e-assignment-returns', source: 'assignment-1', target: 'returns-1', label: 'Assignment', animated: true },
+      { id: 'e-inventory-reports', source: 'inventory-1', target: 'reports-1', label: 'Stock', animated: true },
+    );
+    return { ...config, theme: { ...DEFAULT_THEME, primary: '#16a34a', radius: 6 } };
+  },
+};
+
 try {
   await db.transaction(async (tx) => {
     await tx.insert(modules).values(moduleRegistry).onConflictDoUpdate({
@@ -104,6 +121,37 @@ try {
     await tx.insert(siteModules).values(moduleSettings).onConflictDoNothing({
       target: [siteModules.siteId, siteModules.moduleId],
     });
+
+    for (const registrySite of siteRegistry) {
+      const siteId = siteIds[registrySite.slug];
+      const [site] = await tx.select({ liveVersionId: sites.liveVersionId }).from(sites).where(sql`${sites.id} = ${siteId}`).limit(1);
+      if (!site?.liveVersionId) {
+        const config = siteConfigs[registrySite.slug]();
+        const [version] = await tx.insert(siteVersions).values({
+          siteId, version: 1, config, note: 'Initial site configuration',
+        }).returning({ id: siteVersions.id });
+        await tx.update(sites).set({ liveVersionId: version.id, draft: config, theme: config.theme }).where(sql`${sites.id} = ${siteId}`);
+        await tx.insert(deployments).values({ siteId, versionId: version.id, action: 'publish', note: 'Initial configuration' });
+      }
+    }
+
+    const seedEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+    const seedPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (seedEmail || seedPassword) {
+      if (!seedEmail || !seedPassword || seedPassword.length < 12 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(seedEmail)) {
+        throw new Error('Set both SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least 12 characters.');
+      }
+      const [existingAdmin] = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${seedEmail}`).limit(1);
+      if (!existingAdmin) {
+        await tx.insert(users).values({
+          name: process.env.SEED_ADMIN_NAME?.trim() || 'OpsHub Administrator',
+          email: seedEmail,
+          passwordHash: await hashPassword(seedPassword),
+          isHubAdmin: true,
+          isActive: true,
+        });
+      }
+    }
   });
 
   console.log('Initial modules, sites, and site module settings seeded.');

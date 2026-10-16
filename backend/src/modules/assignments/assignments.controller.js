@@ -16,7 +16,7 @@ export async function listAssignmentsHandler(req, res, next) {
   try {
     const role = await resolveRole(req, res, 1);
     if (!role) return;
-    const rows = await listAssignments(req.params.siteId);
+    const rows = await listAssignments(req.params.siteId, req.user.id);
     return res.json(rows);
   } catch (err) { return next(err); }
 }
@@ -26,7 +26,7 @@ export async function getAssignmentHandler(req, res, next) {
     const role = await resolveRole(req, res, 1);
     if (!role) return;
     if (!validUuid(req.params.id)) return res.status(400).json({ error: 'id must be a valid UUID' });
-    const row = await getAssignment(req.params.siteId, req.params.id);
+    const row = await getAssignment(req.params.siteId, req.params.id, req.user.id);
     if (!row) return res.status(404).json({ error: 'Assignment not found' });
     return res.json(row);
   } catch (err) { return next(err); }
@@ -36,7 +36,7 @@ export async function createAssignmentHandler(req, res, next) {
   try {
     const role = await resolveRole(req, res, 2);
     if (!role) return;
-    const result = await createAssignment(req.params.siteId, req.body, req.user.id);
+    const result = await createAssignment(req.params.siteId, req.body || {}, req.user.id);
     return res.status(201).json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });

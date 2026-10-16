@@ -182,10 +182,9 @@ export async function importInventory(req, res, next) {
     const role = await resolveRole(req, res, 2);
     if (!role) return;
     if (!Array.isArray(req.body.rows)) return res.status(422).json({ error: 'rows[] array is required' });
-    const result = await importItems(req.params.siteId, req.body.rows);
+    const result = await importItems(req.params.siteId, req.body.rows, req.user.id);
     return res.json(result);
   } catch (err) {
-    if (err.partial) return res.status(422).json({ error: err.message, ...err.partial });
     return next(err);
   }
 }

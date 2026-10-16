@@ -22,11 +22,13 @@ export const sites = pgTable('sites', {
   }),
   status: siteStatusEnum('status').notNull().default('active'),
   liveVersionId: uuid('live_version_id'),
+  draft: jsonb('draft').notNull().default({ nodes: [], edges: [], theme: {} }),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   ...timestamps(),
 }, (table) => [
   unique('sites_slug_uq').on(table.slug),
   check('sites_theme_object_ck', sql`jsonb_typeof(${table.theme}) = 'object'`),
+  check('sites_draft_object_ck', sql`jsonb_typeof(${table.draft}) = 'object'`),
   foreignKey({
     name: 'sites_live_version_same_site_fk',
     columns: [table.id, table.liveVersionId],
