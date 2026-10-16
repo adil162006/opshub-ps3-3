@@ -1,6 +1,6 @@
 # OpsHub — one codebase, many operations sites
 
-Config-driven multi-site prototype built with React, Vite, Tailwind, React Router, Zustand, React Flow, Recharts, and SheetJS. Login, current-user restoration, permitted-site discovery, and live site themes use the Express backend. The remaining module workflow/data screens still use the browser-local prototype API.
+Config-driven multi-site prototype built with React, Vite, Tailwind, React Router, Zustand, React Flow, Recharts, and SheetJS. Login, current-user restoration, permitted-site discovery, site configuration, publishing, and live site themes use the Express backend. The business module workflow/data screens still use the browser-local prototype API.
 
 ```bash
 npm install
@@ -11,7 +11,7 @@ npm run build
 
 Routes use browser history, so site URLs look like `/s/central-stores` instead of `/#/s/central-stores`. Production hosting must rewrite unknown paths to `index.html` so direct links and refreshes work.
 
-The module API layer (`src/lib/api.js`) is a simulated REST backend running in the browser (localStorage). The authentication and site APIs use the Express backend and PostgreSQL.
+The business module API layer (`src/lib/api.js`) is a simulated REST backend running in the browser (localStorage). Authentication, site discovery, site configuration, draft saving, publishing, and rollback use the Express backend and PostgreSQL.
 
 ## Backend authentication
 

@@ -118,7 +118,16 @@ export default function SiteRoute({ preview = false }) {
 
   const body = View
     ? <View ctx={ctx} />
-    : <div className="p-10 text-center" style={{ color: 'var(--muted-foreground)' }}>This site has no configured pages yet.</div>;
+    : (
+      <div className="p-10 flex flex-col items-center gap-3 text-center" style={{ color: 'var(--muted-foreground)' }}>
+        <p>This site has no published pages configured yet.</p>
+        {ctx.role === 'Admin' ? (
+          <Link className="btn btn-primary" to={`/builder/${ctx.site.slug}`}>Configure this site</Link>
+        ) : (
+          <p className="text-sm">Ask a site Admin to configure and publish its pages.</p>
+        )}
+      </div>
+    );
 
   return (
     <div className={t.density === 'compact' ? 'compact' : ''} style={style}>

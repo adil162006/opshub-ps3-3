@@ -99,7 +99,7 @@ export default function Hub() {
                   >
                     Open site →
                   </Link>
-                  {user?.role === 'Admin' && (
+                  {s.role === 'Admin' && (
                     <Link
                       to={`/builder/${s.slug}`}
                       className="px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:brightness-110"
