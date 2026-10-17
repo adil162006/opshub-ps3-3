@@ -11,7 +11,28 @@ import {
 } from '../api/users.api';
 import { ROLES } from '../lib/registry';
 
-const emptyForm = () => ({ name: '', email: '', phoneNumber: '', role: 'User', memberships: {} });
+const ROLE_DESIGNATIONS = {
+  Member: ['Technician', 'Field Technician', 'Store Associate', 'Repair Technician', 'Warehouse Staff'],
+  Manager: ['Supervisor', 'Store Keeper', 'Service Manager', 'Distribution Manager', 'Workshop Lead'],
+  Admin: ['Site Administrator', 'Operations Head', 'Unit Manager'],
+};
+
+function DesignationSelect({ role, value, onChange, disabled }) {
+  const options = ROLE_DESIGNATIONS[role] || [];
+  if (!options.length) return null;
+  return (
+    <label className="block min-w-32">
+      <span className="lbl">Designation</span>
+      <select className="input" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select…</option>
+        {options.map((d) => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </label>
+  );
+}
+
+
+const emptyForm = () => ({ name: '', email: '', phoneNumber: '', role: 'User', designation: '', memberships: {} });
 const membershipsForForm = (memberships = []) => Object.fromEntries(
   memberships.map(({ siteId, role }) => [siteId, role]),
 );
@@ -131,7 +152,7 @@ export default function Users() {
           onSubmit={(event) => {
             event.preventDefault();
             addMutation.mutate({
-              name: form.name,
+              name: form.designation ? `${form.name} · ${form.designation}` : form.name,
               email: form.email,
               phoneNumber: form.phoneNumber,
               role: form.role,
@@ -140,11 +161,12 @@ export default function Users() {
           }}
         >
           <h2 className="font-semibold">Add user</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
             <label><span className="lbl">Phone number</span><input className="input" type="tel" placeholder="+919876543210" pattern="\+[1-9][0-9]{7,14}" required value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} /></label>
             <label><span className="lbl">Global role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="User">User</option><option value="Admin">Global Admin</option></select></label>
+            <DesignationSelect role={form.role === 'User' ? 'Member' : form.role} value={form.designation} onChange={(d) => setForm({ ...form, designation: d })} disabled={false} />
           </div>
           <p className="text-xs muted">New accounts receive a phone verification code through Minimoth.</p>
           {form.role !== 'Admin' && (
@@ -185,7 +207,7 @@ export default function Users() {
                               <input aria-label="New password (optional)" className="input" type="password" minLength={6} placeholder="New password (optional)" autoComplete="new-password" value={editForm.password} onChange={(event) => setEditForm({ ...editForm, password: event.target.value })} />
                             </div>
                           ) : (
-                            <div><div className="font-medium">{user.name}</div><div className="text-xs muted">{user.email}</div>{!user.isActive && <span className="text-xs text-amber-400">Inactive</span>}</div>
+                            <div><div className="font-medium">{user.name.split(' · ')[0]}</div>{user.name.includes(' · ') && <div className="text-xs" style={{color:'var(--primary)'}}>{user.name.split(' · ')[1]}</div>}<div className="text-xs muted">{user.email}</div>{!user.isActive && <span className="text-xs text-amber-400">Inactive</span>}</div>
                           )}
                         </td>
                         <td>{user.phoneNumber || '—'}</td>

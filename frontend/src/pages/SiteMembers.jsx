@@ -10,13 +10,30 @@ import {
   updateSiteUser,
 } from '../api/users.api';
 
-const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
+const ROLE_DESIGNATIONS = {
+  Member: ['Technician', 'Field Technician', 'Store Associate', 'Repair Technician', 'Warehouse Staff'],
+  Manager: ['Supervisor', 'Store Keeper', 'Service Manager', 'Distribution Manager', 'Workshop Lead'],
+  Admin: ['Site Administrator', 'Operations Head', 'Unit Manager'],
+};
+
+function DesignationSelect({ role, value, onChange }) {
+  const options = ROLE_DESIGNATIONS[role] || [];
+  return (
+    <label>
+      <span className="lbl">Designation</span>
+      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select designation…</option>
+        {options.map((d) => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </label>
+  );
+}
 
 export default function SiteMembers({ ctx }) {
   const queryClient = useQueryClient();
   const siteId = ctx.site.id;
   const isSiteAdmin = ctx.role === 'Admin';
-  const [form, setForm] = useState({ name: '', email: '', phoneNumber: '', role: 'Member' });
+  const [form, setForm] = useState({ name: '', email: '', phoneNumber: '', role: 'Member', designation: '' });
   const membersQuery = useQuery({
     queryKey: siteMembersQueryKey(siteId),
     queryFn: () => getSiteUsers(siteId),
@@ -28,7 +45,7 @@ export default function SiteMembers({ ctx }) {
       toast.ok(result.initialPasswordSent
         ? 'User added. A phone verification code was sent.'
         : 'Existing user added to this site; invitation sent.');
-      setForm({ name: '', email: '', phoneNumber: '', role: 'Member' });
+      setForm({ name: '', email: '', phoneNumber: '', role: 'Member', designation: '' });
       await refreshMembers();
     },
     onError: (error) => toast.err(errorMessage(error)),
@@ -58,16 +75,17 @@ export default function SiteMembers({ ctx }) {
     <Page title="Members" sub="Manage this site's members and roles. New accounts get access only to this site; existing accounts keep their other site memberships.">
       {ctx.user?.isHubAdmin && (
         <form
-          className="card p-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end"
+          className="card p-4 grid sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end"
           onSubmit={(event) => {
             event.preventDefault();
-            addMutation.mutate({ name: form.name, email: form.email, phoneNumber: form.phoneNumber, role: form.role });
+            addMutation.mutate({ name: form.designation ? `${form.name} · ${form.designation}` : form.name, email: form.email, phoneNumber: form.phoneNumber, role: form.role });
           }}
         >
           <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
           <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
           <label><span className="lbl">Phone number</span><input className="input" type="tel" placeholder="+919876543210" pattern="\+[1-9][0-9]{7,14}" required value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} /></label>
-          <label><span className="lbl">Site role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label>
+          <label><span className="lbl">Site role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, designation: '' })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label>
+          <DesignationSelect role={form.role} value={form.designation} onChange={(d) => setForm({ ...form, designation: d })} />
           <button className="btn btn-primary" type="submit" disabled={addMutation.isPending}>
             {addMutation.isPending ? 'Adding…' : 'Add to site'}
           </button>
@@ -81,7 +99,10 @@ export default function SiteMembers({ ctx }) {
         <DataTable
           rows={members}
           columns={[
-            { key: 'name', label: 'Name' },
+            { key: 'name', label: 'Name', render: (member) => {
+              const [displayName, designation] = member.name.split(' · ');
+              return <div><div className="font-medium">{displayName}</div>{designation && <div className="text-xs muted">{designation}</div>}</div>;
+            } },
             { key: 'email', label: 'Email' },
             { key: 'phoneNumber', label: 'Phone' },
             { label: 'Phone verification', render: (member) => member.isVerified ? <Badge v="Verified" /> : <span className="text-amber-400">Not verified</span> },
