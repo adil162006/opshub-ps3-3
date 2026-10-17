@@ -1,75 +1,88 @@
-# OpsHub HTTP API
+# HTTP API reference
 
-Base URL defaults to `http://localhost:3000`. All API routes are under `/api`; health endpoints are not. JSON routes use `Content-Type: application/json`. Routes marked **auth** require a valid login cookie. Site routes require site membership and the relevant role. The API currently sets an HttpOnly cookie named `token`; the browser sends it with credentialed requests. There is no documented bearer-token requirement for the frontend.
+This guide describes the Express routes mounted under `/api` in `backend/src/server.js`. The backend defaults to `http://localhost:3000`. All site identifiers in API paths are UUIDs unless a route explicitly accepts a slug; the frontend uses site UUIDs for operational calls.
 
-## Health
+## Conventions
 
-| Method | Path | Auth | Purpose |
+- JSON endpoints accept and return JSON unless noted. Send `Content-Type: application/json` for JSON request bodies.
+- Login sets the HttpOnly `token` cookie, scoped to `/api`. Browser clients must send credentials on API requests; the frontend Axios client is configured for this.
+- Authenticated routes require that cookie. Site operations also check site access, enabled modules, and operation-specific roles in their services. A global administrator has site Admin access.
+- Role checks differ by operation. Do not infer a complete permission matrix from this route list; check the relevant service before building another client.
+- Health endpoints are outside `/api`.
+
+## Health and readiness
+
+| Method | Path | Authentication | Behavior |
 |---|---|---|---|
-| GET | `/health` | No | Process liveness |
-| GET | `/ready` | No | PostgreSQL readiness check |
+| GET | `/health` | No | Process liveness. |
+| GET | `/ready` | No | Queries PostgreSQL; returns readiness or forwards a database error. |
 
 ## Authentication
 
-| Method | Path | Auth | Body / behavior |
+| Method | Path | Authentication | Behavior |
 |---|---|---|---|
-| POST | `/api/auth/login` | No | `{ "email": "...", "password": "..." }`; sets HttpOnly cookie |
-| POST | `/api/auth/global-admin/signup` | No | `{ "name": "...", "email": "...", "password": "..." }`; creates initial global admin where allowed |
-| POST | `/api/auth/logout` | No | Clears cookie; returns 204 |
-| GET | `/api/auth/me` | Yes | Current user and accessible-site context |
+| POST | `/api/auth/login` | No | Accepts `{ "email": "...", "password": "..." }`; sets the HttpOnly cookie and returns user context. |
+| POST | `/api/auth/otp/verify` | No | Verifies a phone OTP; see the auth service for request and provider behavior. |
+| POST | `/api/auth/global-admin/signup` | No | Creates the initial global administrator only when signup is permitted by the auth service. |
+| POST | `/api/auth/logout` | No | Clears the authentication cookie; returns 204. |
+| GET | `/api/auth/me` | Yes | Returns current authenticated user context. |
 
 ## Sites and configuration
 
-| Method | Path | Auth | Body / query |
-|---|---|---|---|
-| GET | `/api/sites` | Yes | Sites available to current user |
-| POST | `/api/sites` | Yes | JSON site configuration/metadata; creates site |
-| GET | `/api/sites/:siteId` | Yes | Site and published configuration; `?preview=true` requests draft preview when authorized |
-| PUT | `/api/sites/:siteId/draft` | Yes | `{ "draft": { ...configuration } }` |
-| POST | `/api/sites/:siteId/publish` | Yes | Optional `{ "note": "..." }` |
-| POST | `/api/sites/:siteId/rollback` | Yes | `{ "version": <version number> }` |
+All routes in this section require authentication. Create, delete, draft, publish, and rollback operations are global-administrator operations.
 
-The configuration body is JSON and includes module nodes/edges and site presentation settings. The exact accepted shape is validated by the site service and frontend registry; see `frontend/src/lib/registry.js`.
-
-## Users and memberships
-
-| Method | Path | Auth | Purpose |
-|---|---|---|---|
-| GET, POST | `/api/users` | Yes | List/manage global users (global admin only) |
-| PUT, PATCH, DELETE | `/api/users/:userId` | Yes | Update/delete global user (global admin only) |
-| GET, POST | `/api/:siteId/members` | Yes | List/add a site's members |
-| PUT, PATCH, DELETE | `/api/:siteId/members/:userId` | Yes | Update/remove a site membership |
-
-User creation and invitation use the backend user-management flow. Configure SMTP before using invitation endpoints. Consult `backend/src/modules/users/users.service.js` for accepted fields and role-specific rules.
-
-## Operational resources
-
-The following route sets accept both `/:siteId/...` and `/sites/:siteId/...` forms where indicated. IDs are UUIDs.
-
-| Resource | Methods and paths | Notes |
+| Method | Path | Behavior |
 |---|---|---|
-| Inventory | GET/POST `/api/:siteId/inventory`; GET/PUT/DELETE `/api/:siteId/inventory/:id` | `?search=` supported on list; create requires `sku`, `name` |
-| Inventory import/export | GET `/api/:siteId/inventory/export`; GET `/api/:siteId/inventory/template`; POST `/api/:siteId/inventory/import` | JSON import body `{ "rows": [...] }`; import updates/inserts rows. Role restricted. |
-| Categories | GET/POST `/api/:siteId/categories`; PUT/DELETE `/api/:siteId/categories/:id` | Create requires `name` |
-| Stock movements | GET/POST `/api/:siteId/stock-movements` | List accepts `?itemId=`. Create requires `itemId`, `movementType`, `quantity`; supported types: `receipt`, `issue`, `adjustment`, `return`, `transfer_in`, `transfer_out`. |
-| Requests | GET/POST `/api/:siteId/requests`; PUT/DELETE `/api/:siteId/requests/:id` | JSON form data and request items are interpreted by the request service. |
-| Approvals | GET/POST `/api/:siteId/approvals` | POST submits a decision payload for the current approval step. |
-| Assignments | GET/POST `/api/:siteId/assignments`; GET/PUT `/api/:siteId/assignments/:id` | Creation performs workflow/stock checks and a transaction. |
-| Consumption | GET/POST `/api/:siteId/consumption` | Records consumption against issued assignment items. |
-| Returns | GET/POST `/api/:siteId/returns` | Records returned material or repaired items. |
-| Repairs | GET/POST `/api/:siteId/repairs`; PUT/DELETE `/api/:siteId/repairs/:id` | Repair stages are enforced by service workflow. |
-| Analytics | GET `/api/:siteId/analytics` | Site-scoped aggregate data. |
-| Excel reports | GET `/api/:siteId/export/:resource` | Returns XLSX attachment; supported resource names are validated by reports service. |
-| Workbook import | POST `/api/:siteId/import/inventory` | Raw XLSX (`.xlsx`, up to 5 MB) or JSON `{ "rows": [...] }`; role restricted. |
+| GET | `/api/sites` | Lists sites available to the current user and their role/module summary. |
+| POST | `/api/sites` | Creates a site from an approved preset and publishes its initial configuration. |
+| DELETE | `/api/sites/:siteId` | Deletes a site (global administrator only). |
+| GET | `/api/sites/:siteId` | Returns the published configuration. `?preview=true` requests the draft and is global-administrator only. |
+| PUT | `/api/sites/:siteId/draft` | Validates and saves a draft configuration. |
+| POST | `/api/sites/:siteId/publish` | Validates and publishes the draft as a version; an optional note may be supplied. |
+| POST | `/api/sites/:siteId/rollback` | Publishes a prior version selected by version number. |
 
-Inventory, category, and movement routes also have `/api/sites/:siteId/...` aliases. The aliases are retained for frontend compatibility; new API clients should use one consistent form.
+Configurations contain module nodes and typed edges plus theme/presentation settings. The [frontend module registry](../frontend/src/lib/registry.js) defines the approved module vocabulary and client validation. The backend also validates site configuration.
 
-## Request and response conventions
+## Global users and site members
 
-- Successful collection reads return JSON arrays unless noted; create operations generally return 201 and the created record.
-- Validation errors use 400 or 422; missing resources use 404; permission failures use 403; conflicts such as duplicate site SKU use 409.
-- Some services return `{ "error": "..." }`; the centralized error handler also emits a JSON status/message shape. Clients should handle both `error` and `message` fields.
-- Site business routes require a UUID site ID. Frontend site data is read from and written to these API endpoints.
+| Method | Path | Authentication / role |
+|---|---|---|
+| GET, POST | `/api/users` | Global administrator. |
+| PUT, PATCH, DELETE | `/api/users/:userId` | Global administrator. |
+| GET | `/api/:siteId/members` | Authenticated member of the site; minimum role is enforced by the service. |
+| POST | `/api/:siteId/members` | Global administrator. |
+| PUT, PATCH, DELETE | `/api/:siteId/members/:userId` | Authenticated; role/site checks are performed by the service. |
+
+User invitation and related email operations require working SMTP configuration. See [setup and operations](setup.md).
+
+## Site-scoped operational routes
+
+All routes below require authentication, site access, and any module/role checks specified by the corresponding service. The route prefix is `/api/:siteId` unless a **Sites alias** column says `/api/sites/:siteId` is also registered.
+
+| Resource | Methods and path | Sites alias | Notes |
+|---|---|---|---|
+| Inventory items | GET, POST `.../inventory`; GET, PUT, DELETE `.../inventory/:id` | Yes | List supports `?search=`. Create requires an SKU and name. |
+| Inventory import/export | GET `.../inventory/export`; GET `.../inventory/template`; POST `.../inventory/import` | Yes | JSON import accepts rows; the inventory service checks role and validates rows. |
+| Categories | GET, POST `.../categories`; PUT, DELETE `.../categories/:id` | Yes | Site-owned categories. |
+| Stock movements | GET, POST `.../stock-movements` | Yes | List may filter by `?itemId=`. Movement types are `receipt`, `issue`, `adjustment`, `return`, `transfer_in`, and `transfer_out`. |
+| Requests | GET, POST `.../requests`; PUT, DELETE `.../requests/:id` | No | Request fields are determined by the site's request module configuration. |
+| Approvals | GET, POST `.../approvals` | Yes | POST submits a decision for the current configured step. |
+| Assignments | GET, POST `.../assignments`; GET, PUT `.../assignments/:id` | Yes | Creation performs stock/request checks and writes the stock issue and assignment in a transaction. |
+| Consumption | GET, POST `.../consumption` | No | Records consumption against an assignment item; optional list filtering is supported by the service. |
+| Returns | GET, POST `.../returns` | Yes | Records a material or repair return according to enabled modules and request body. |
+| Repairs | GET, POST `.../repairs`; PUT, DELETE `.../repairs/:id` | No | Repair lifecycle stages are validated by the service. |
+| Analytics | GET `.../analytics` | Yes | Site-scoped summary data. |
+| Excel report export | GET `/api/:siteId/export/:resource` | No | Returns an XLSX attachment for a supported resource; role restricted. |
+| Inventory workbook import | POST `/api/:siteId/import/inventory` | No | Accepts XLSX raw body (up to 5 MB) or JSON rows, depending on content type; Manager role required. |
+
+`...` above means the path prefix `/api/:siteId`; aliases are only registered for the resources marked **Yes**. Do not assume all resource routes support both prefix forms.
+
+## Request and response behavior
+
+- Successful collection reads commonly return arrays; create and update operations return JSON records or service-specific result objects.
+- The controller/service is authoritative for each operation's exact payload and response shape. Configurable request and repair fields are validated against the site's published module configuration.
+- Common status codes include 400 for malformed identifiers/requests, 401 for unauthenticated or inactive accounts, 403 for denied role/origin, 404 for inaccessible/missing resources, 409 for workflow/stock conflicts, and 422 for field validation. Exact error bodies may use `message` or `error`.
+- Site operations are not guaranteed to have database-level RLS protection. API role checks and site-scoped queries do not replace database-enforced tenant isolation.
 
 ## Browser example
 
@@ -82,8 +95,12 @@ const response = await fetch(`${API_URL}/api/auth/login`, {
 });
 ```
 
-For operational calls, also set `credentials: 'include'`. CORS must allow the exact frontend origin and credentials.
+Use `credentials: 'include'` for subsequent authenticated requests as well. The configured backend CORS origin must exactly match the page origin and permit credentials.
 
-## Authorization note
+## Implementation references
 
-The services check membership and role for site operations, but permission rules vary by operation. They are not fully represented by a single API-wide matrix. PostgreSQL RLS is not installed yet; API access controls are not a substitute for database-enforced tenant isolation. Consult the corresponding service for the authoritative rule before integrating a new client.
+- Route registration: `backend/src/modules/*/*.routes.js`.
+- Authentication cookie and controllers: `backend/src/modules/auth/`.
+- Site configuration lifecycle: `backend/src/modules/sites/`.
+- Workflow and role rules: each resource's `backend/src/modules/*/*.service.js`.
+- Known platform gaps: [feature status](../features.md).

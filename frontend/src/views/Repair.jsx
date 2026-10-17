@@ -5,6 +5,7 @@ import { RANK, STAGES, fieldsOf } from '../lib/registry';
 export function RepairView({ ctx }) {
   const fields = fieldsOf(ctx.config, 'repair'); const reqs = useRows(ctx, 'requests'); const reps = useRows(ctx, 'repairs');
   const [form, setForm] = useState(null); // {req} | {row}
+  const [updating, setUpdating] = useState(null);
   const can = RANK[ctx.role] >= 2; const waiting = reqs.filter((r) => ['approved', 'open'].includes(r.status));
   const keys = fields.map((f) => f.key);
   const start = (req) => setForm({ req, initial: Object.fromEntries(Object.entries(req).filter(([k]) => keys.includes(k))) });
@@ -12,7 +13,14 @@ export function RepairView({ ctx }) {
     const ok = await attempt(() => form.row ? ctx.api.put('repairs', form.row.id, v) : ctx.api.post('repairs', { ...v, requestId: form.req.id }), form.row ? 'Repair updated' : 'Repair started');
     if (ok) setForm(null); return ok;
   };
-  const move = (r, dir) => attempt(() => ctx.api.put('repairs', r.id, { status: STAGES[STAGES.indexOf(r.status) + dir] }));
+  const updateStatus = async (repair, status) => {
+    setUpdating(repair.id);
+    try {
+      await attempt(() => ctx.api.put('repairs', repair.id, { status }), `Repair status updated to ${status}`);
+    } finally {
+      setUpdating(null);
+    }
+  };
   return (
     <Page title="PCB Repair" sub="Approved requests become repair jobs. Move cards across the board.">
       {waiting.length > 0 && <div className="card p-4"><div className="lbl">Approved — awaiting repair</div><div className="flex flex-wrap gap-2 mt-2">{waiting.map((r) => <button key={r.id} disabled={!can} className="btn" onClick={() => start(r)}>{r.requestNo} · {r.device || r.title || ''} → Start</button>)}</div></div>}
@@ -25,7 +33,13 @@ export function RepairView({ ctx }) {
               <div className="flex justify-between"><b>{r.requestNo}</b>{r.returned && <Badge v="returned" />}</div>
               {fields.filter((f) => f.type !== 'calc').slice(0, 2).map((f) => <div key={f.key} className="text-xs">{f.label}: {fmt(r[f.key])}</div>)}
               {fields.filter((f) => f.type === 'calc').map((f) => <div key={f.key} className="text-xs font-semibold">{f.label}: {fmt(r[f.key])}</div>)}
-              {can && <div className="flex gap-1 pt-1"><button className="btn btn-sm" disabled={STAGES.indexOf(st) === 0} onClick={() => move(r, -1)}>‹</button><button className="btn btn-sm" onClick={() => setForm({ row: r })}>Edit</button><button className="btn btn-sm" disabled={STAGES.indexOf(st) === STAGES.length - 1} onClick={() => move(r, 1)}>›</button></div>}
+              {can && <div className="flex gap-1 pt-1">
+                <label className="sr-only" htmlFor={`repair-status-${r.id}`}>Status for {r.requestNo}</label>
+                <select id={`repair-status-${r.id}`} className="input text-xs py-1" value={r.status} disabled={updating === r.id} onChange={(e) => updateStatus(r, e.target.value)}>
+                  {STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+                </select>
+                <button className="btn btn-sm" onClick={() => setForm({ row: r })}>Edit</button>
+              </div>}
             </div>))}
         </div>))}</div>
     </Page>);

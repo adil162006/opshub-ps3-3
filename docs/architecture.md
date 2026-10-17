@@ -1,54 +1,71 @@
-# OpsHub architecture
+# Architecture
 
-## System overview
+OpsHub is a configuration-driven, multi-site operations application. One React client renders site-specific navigation and views from saved configuration. The backend provides authentication, configuration lifecycle APIs, operational services, and PostgreSQL persistence.
+
+## Request path
 
 ```mermaid
 flowchart LR
-  Browser[React + Vite browser app]
-  Registry[Module registry and config validator]
-  Http[Credentialed HTTP API]
-  Api[Express API]
-  Auth[Cookie JWT + role checks]
-  Services[Site-scoped services]
-  DB[(PostgreSQL via Drizzle)]
+  Browser[React + Vite]
+  Registry[Module registry and client validation]
+  Client[Credentialed API client]
+  Express[Express API]
+  Auth[HttpOnly cookie authentication]
+  Services[Site-scoped services and role checks]
+  Drizzle[Drizzle ORM]
+  Postgres[(PostgreSQL)]
   Browser --> Registry
-  Browser -->|site configuration and operational data| Http --> Api
-  Api --> Auth --> Services --> DB
+  Browser --> Client
+  Client --> Express
+  Express --> Auth
+  Auth --> Services
+  Services --> Drizzle
+  Drizzle --> Postgres
 ```
 
 ## Frontend
 
-`frontend/` is a React 18 and Vite app. `src/lib/registry.js` defines the 13 supported module types, typed inputs/outputs, defaults, presets, page metadata, and configuration validation. The builder stores nodes and edges as JSON configuration. `src/pages/SiteRoute.jsx` renders pages from the active site's enabled modules, so a site slug does not determine its features. View components are under `src/views/`; API clients are under `src/api/` and `src/lib/`.
+`frontend/` is a React 18 application built with Vite. Shared UI lives in `frontend/src/`; API clients are in `frontend/src/api/` and use the configured Axios client. The frontend has no browser-local operational database or simulator.
 
-The frontend uses the HTTP API for login/session, site discovery/configuration, and operational data. No browser-local simulator or demo operational records are included.
+The module registry in `frontend/src/lib/registry.js` is the client-side source of truth for 13 approved module types, their typed inputs and outputs, defaults, presets, page metadata, and configuration validation. The React Flow builder edits module nodes, edges, fields, approval steps, and theme; it saves drafts and exposes preview, publish, release history, and rollback. `frontend/src/pages/SiteRoute.jsx` resolves rendered pages from the active published configuration rather than from site slugs.
+
+Operational views under `frontend/src/views/` load and mutate API-backed resources. React Query is used for remote reads and cache invalidation. Site context includes the current site, published configuration, user role, and theme.
 
 ## Backend
 
-`backend/src/server.js` hosts the Express 5 API. It configures Helmet, credentialed CORS, cookie parsing, JSON parsing, health/readiness handlers, module routers, 404 handling, and centralized errors. Routes call controllers and services; services access PostgreSQL through Drizzle. Authentication uses a server-issued JWT in an HttpOnly cookie. Business operations check site membership/role and scope database queries using the site UUID.
+`backend/src/server.js` starts an Express 5 API (default port 3000). The app configures Helmet, credentialed CORS, cookie parsing, JSON/urlencoded parsers, health/readiness routes, resource routers, 404 responses, and centralized error handling.
 
-`GET /health` checks that the process responds. `GET /ready` also queries PostgreSQL. The service defaults to port 3000.
+Authentication uses a server-issued JWT in an HttpOnly cookie named `token`, scoped to `/api`. Authenticated operations resolve the active account from the database. Site services verify membership or global-administrator status, check enabled modules and operation-specific roles, and use site identifiers in business-data queries.
+
+Routes call controllers, which call services. Services use Drizzle ORM against PostgreSQL. `GET /health` checks process liveness; `GET /ready` also issues a database query.
 
 ## Configuration and modules
 
-The registry contains 13 modules: Authentication & RBAC, User Management, Dashboard Shell, Inventory, Request, Approval, Material Assignment, Assignment Frontend, Consumption Tracking, Return Management, PCB Repair, Analytics Dashboard, and Reports/Excel. A configuration includes module nodes and typed edges, plus site theme/page settings. The backend validates and versions draft/published configuration; the frontend registry remains the source for module semantics. Keep module definitions and validators aligned when changing configuration behavior.
+The approved module catalog is Authentication & RBAC, User Management, Dashboard Shell, Inventory, Request, Approval, Material Assignment, Assignment Frontend, Consumption Tracking, Return Management, PCB Repair, Analytics Dashboard, and Reports/Excel.
 
-## Data and tenancy
+A site configuration contains module nodes and typed edges, along with theme and page presentation settings. The frontend registry validates the 13 module types and connection semantics. The backend validates saved configuration and stores drafts separately from published versions. Publishing creates a version and deployment record; rollback publishes a selected previous configuration as a new deployment action.
 
-The canonical schema is in `backend/src/db/schema/`; migrations are in `backend/drizzle/`. Site-owned records include a `site_id`; same-site composite foreign keys constrain references between business records. Service queries also scope records to the requested site and authenticated membership.
+The database also has a normalized module catalog and site-module enablement records. The published JSON configuration is the runtime source used by the site renderer and services.
 
-PostgreSQL RLS policies are not currently installed. Same-site constraints and API checks reduce accidental cross-site access but do not provide database-enforced isolation against a future query bug. Real database isolation tests are also pending. Review [data-model.md](data-model.md) and [features.md](../features.md).
+## Data and tenant boundaries
 
-## Security and deployment boundaries
+Drizzle schema definitions live in `backend/src/db/schema/`; SQL migrations live in `backend/drizzle/`. Site-owned business tables include `site_id`. Selected foreign keys are composite on site and referenced record, preventing cross-site references for those relationships. Services also scope queries by site and require site membership/role where appropriate.
 
-- The browser receives an HttpOnly JWT cookie; API calls use credentials. Do not place passwords, JWT secrets, or database URLs in frontend variables.
-- Set a random `JWT_SECRET`, exact allowed frontend origins in `CORS_ORIGINS`, and secure cookie settings appropriate for the deployment. Cross-site cookies require HTTPS and `AUTH_COOKIE_SAME_SITE=none`.
-- Configure a database backup and migration process before using real operational data.
-- The API currently has no RLS policy layer, real backend test suite, or deployment manifests.
-- Vite history routing requires the production web server to serve `index.html` for application routes.
+**PostgreSQL row-level security is not installed.** Direct database access and an accidentally unscoped query are not contained by RLS. The current controls are API/service checks and selected same-site constraints; do not describe them as complete database-enforced tenant isolation. Cross-site integration tests are also outstanding. See [the data model](data-model.md) and [feature checklist](../features.md).
+
+## Authentication and deployment considerations
+
+- Never put database URLs, JWT secrets, or passwords in frontend environment variables.
+- Configure a high-entropy `JWT_SECRET`, exact allowed origins in `CORS_ORIGINS`, and production cookie settings.
+- Cross-site cookies require HTTPS and `AUTH_COOKIE_SAME_SITE=none`; the cookie is then marked secure by the backend.
+- Configure backups, secret management, HTTPS, and a migration process before handling production data.
+- A production frontend host must serve `index.html` for client-side routes. Configure the frontend API URL at build time when not using the local default.
+- The repository does not provide a deployed production stack or end-to-end environment.
 
 ## Change flow
 
-1. Update module types/defaults/validation in `frontend/src/lib/registry.js` when changing site configuration behavior.
-2. Update backend schema files and generate/apply a migration for persisted data changes.
-3. Update services/controllers and `docs/api.md` when an API behavior changes.
-4. Keep backend seed data and workflow documentation consistent with the schema and registry.
+1. Update `frontend/src/lib/registry.js` when changing module semantics, typed connections, presets, or client validation.
+2. Update Drizzle schema files and generate/review/apply a migration when persisted data changes.
+3. Update backend service/controller behavior and [the API reference](api.md) when routes or payloads change.
+4. Keep the seed data, [workflow guide](workflows.md), and [data model](data-model.md) aligned with implementation.
+5. Update [feature status](../features.md) when delivery state or known gaps change.
