@@ -1,8 +1,8 @@
 import { inArray, sql } from 'drizzle-orm';
 import { db, pool } from './index.js';
 import { deployments, modules, siteMembers, siteModules, siteVersions, sites, users } from './schema/index.js';
-import { DEFAULT_THEME, MODULES, PRESETS } from '../../../frontend/src/lib/registry.js';
-import { hashPassword } from '../lib/password.js';
+import { MODULES, PRESETS } from '../../../frontend/src/lib/registry.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../lib/password.js';
 
 const moduleRegistry = [
   { key: 'auth_rbac', name: 'Authentication & RBAC', category: 'Core' },
@@ -25,55 +25,25 @@ const siteRegistry = [
     slug: 'central-stores',
     name: 'Central Stores',
     description: 'Inventory, stock control, analytics and Excel reporting.',
-    theme: {
-      primaryColor: '#0369a1',
-      backgroundColor: '#0b1020',
-      sidebarColor: '#131c2e',
-      cardColor: '#131c2e',
-      textColor: '#e5e7eb',
-      fontFamily: 'Inter',
-      borderRadius: '10px',
-      mode: 'dark',
-    },
     enabled: ['auth_rbac', 'user_mgmt', 'inventory', 'dashboard_shell', 'analytics', 'reports_excel'],
   },
   {
     slug: 'service-centre',
     name: 'Service Centre',
     description: 'Customer requests, approvals, PCB repairs and returns.',
-    theme: {
-      primaryColor: '#9333ea',
-      backgroundColor: '#0b1020',
-      sidebarColor: '#131c2e',
-      cardColor: '#131c2e',
-      textColor: '#e5e7eb',
-      fontFamily: 'Inter',
-      borderRadius: '18px',
-      mode: 'dark',
-    },
     enabled: ['auth_rbac', 'user_mgmt', 'dashboard_shell', 'request', 'approval', 'returns', 'pcb_repair', 'analytics', 'reports_excel'],
   },
   {
     slug: 'distribution',
     name: 'Distribution Team',
     description: 'Material requests, assignment, distribution and consumption tracking.',
-    theme: {
-      primaryColor: '#16a34a',
-      backgroundColor: '#0b1020',
-      sidebarColor: '#131c2e',
-      cardColor: '#131c2e',
-      textColor: '#e5e7eb',
-      fontFamily: 'Inter',
-      borderRadius: '6px',
-      mode: 'dark',
-    },
     enabled: ['auth_rbac', 'user_mgmt', 'inventory', 'dashboard_shell', 'request', 'approval', 'material_assignment', 'assignment_frontend', 'consumption', 'returns', 'analytics', 'reports_excel'],
   },
 ];
 
 const siteConfigs = {
-  'central-stores': () => ({ ...PRESETS['Inventory Starter'](), theme: { ...DEFAULT_THEME, primary: '#0369a1' } }),
-  'service-centre': () => ({ ...PRESETS['Repair Shop'](), theme: { ...DEFAULT_THEME, primary: '#9333ea', radius: 18 } }),
+  'central-stores': () => PRESETS['Inventory Starter'](),
+  'service-centre': () => PRESETS['Repair Shop'](),
   distribution: () => {
     const config = PRESETS['Approval Chain']();
     const node = (type, id) => ({ id, type: 'module', position: { x: 1440, y: type === 'returns' ? 60 : 220 }, data: { type, label: MODULES[type].name, config: {} } });
@@ -82,7 +52,7 @@ const siteConfigs = {
       { id: 'e-assignment-returns', source: 'assignment-1', target: 'returns-1', label: 'Assignment', animated: true },
       { id: 'e-inventory-reports', source: 'inventory-1', target: 'reports-1', label: 'Stock', animated: true },
     );
-    return { ...config, theme: { ...DEFAULT_THEME, primary: '#16a34a', radius: 6 } };
+    return config;
   },
 };
 
@@ -97,11 +67,10 @@ try {
       },
     });
 
-    await tx.insert(sites).values(siteRegistry.map(({ slug, name, description, theme }) => ({
+    await tx.insert(sites).values(siteRegistry.map(({ slug, name, description }) => ({
       slug,
       name,
       description,
-      theme,
     }))).onConflictDoNothing({ target: sites.slug });
 
     const seededSites = await tx.select({ id: sites.id, slug: sites.slug })
@@ -138,14 +107,16 @@ try {
     const seedEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
     const seedPassword = process.env.SEED_ADMIN_PASSWORD;
     if (seedEmail || seedPassword) {
-      if (!seedEmail || !seedPassword || seedPassword.length < 12 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(seedEmail)) {
-        throw new Error('Set both SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least 12 characters.');
+      if (!seedEmail || !seedPassword || seedPassword.length < MIN_PASSWORD_LENGTH || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(seedEmail)) {
+        throw new Error(`Set both SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least ${MIN_PASSWORD_LENGTH} characters.`);
       }
       const [existingAdmin] = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${seedEmail}`).limit(1);
       if (!existingAdmin) {
         await tx.insert(users).values({
           name: process.env.SEED_ADMIN_NAME?.trim() || 'OpsHub Administrator',
           email: seedEmail,
+          phoneNumber: '+10000000001',
+          isVerified: true,
           passwordHash: await hashPassword(seedPassword),
           isHubAdmin: true,
           isActive: true,

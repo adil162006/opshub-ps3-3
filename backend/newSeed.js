@@ -61,12 +61,12 @@ async function getOrCreateUser(tx, { name, email, isHubAdmin, passwordHash, isAc
   const [existing] = await tx.select({ id: users.id }).from(users)
     .where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
   if (existing) {
-    await tx.update(users).set({ name, email: normalizedEmail, passwordHash, isHubAdmin, isActive, updatedAt: new Date() })
+    await tx.update(users).set({ name, email: normalizedEmail, phoneNumber: '+10000000001', isVerified: true, passwordHash, isHubAdmin, isActive, updatedAt: new Date() })
       .where(eq(users.id, existing.id));
     return existing.id;
   }
   const id = idFor(`user:${normalizedEmail}`);
-  await tx.insert(users).values({ id, name, email: normalizedEmail, passwordHash, isHubAdmin, isActive });
+  await tx.insert(users).values({ id, name, email: normalizedEmail, phoneNumber: '+10000000001', isVerified: true, passwordHash, isHubAdmin, isActive });
   return id;
 }
 
@@ -80,6 +80,8 @@ async function getOrCreateDemoUser(tx, name, email) {
     id,
     name,
     email: normalizedEmail,
+    phoneNumber: '+10000000000',
+    isVerified: false,
     passwordHash: await hashPassword(randomUUID()),
     isHubAdmin: false,
     isActive: false,
