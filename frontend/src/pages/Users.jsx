@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, Page, toast } from '../ui';
+import { Badge, Page, Pagination, toast } from '../ui';
 import { getSites, SITES_QUERY_KEY } from '../api/site.api';
 import {
   createUser,
   deleteUser,
-  getUsers,
+  getAllUsers,
   GLOBAL_USERS_QUERY_KEY,
   updateUser,
 } from '../api/users.api';
 import { ROLES } from '../lib/registry';
+
+const USERS_PAGE_SIZE = 10;
 
 const ROLE_DESIGNATIONS = {
   Member: ['Technician', 'Field Technician', 'Store Associate', 'Repair Technician', 'Warehouse Staff'],
@@ -43,8 +45,8 @@ const errorMessage = (error) => error.response?.data?.message || error.response?
 
 function SiteRoleFields({ sites, memberships, disabled, onChange }) {
   return sites.map((site) => (
-    <label key={site.id} className="block min-w-32">
-      <span className="lbl">{site.name}</span>
+    <label key={site.id} className="block min-w-0">
+      <span className="lbl truncate" title={site.name}>{site.name}</span>
       <select
         className="input"
         value={memberships[site.id] || ''}
@@ -65,13 +67,15 @@ export default function Users() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const usersQuery = useQuery({
-    queryKey: [...GLOBAL_USERS_QUERY_KEY, page],
-    queryFn: () => getUsers(page),
+    queryKey: GLOBAL_USERS_QUERY_KEY,
+    queryFn: getAllUsers,
   });
   const sitesQuery = useQuery({ queryKey: SITES_QUERY_KEY, queryFn: getSites });
   const sites = sitesQuery.data || [];
-  const users = usersQuery.data?.users || [];
-  const pagination = usersQuery.data?.pagination;
+  const users = usersQuery.data || [];
+  const totalPages = Math.max(1, Math.ceil(users.length / USERS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const visibleUsers = users.slice((currentPage - 1) * USERS_PAGE_SIZE, currentPage * USERS_PAGE_SIZE);
 
   const invalidate = async () => {
     await Promise.all([
@@ -170,7 +174,10 @@ export default function Users() {
           </div>
           <p className="text-xs muted">New accounts receive a phone verification code through Minimoth.</p>
           {form.role !== 'Admin' && (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div
+              className="grid min-w-0 gap-3"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 14rem), 1fr))' }}
+            >
               <SiteRoleFields
                 sites={sites}
                 memberships={form.memberships}
@@ -194,7 +201,7 @@ export default function Users() {
                   <tr><th>User</th><th>Phone</th><th>Phone verification</th><th>Global role</th>{sites.map((site) => <th key={site.id}>{site.name}</th>)}<th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => {
+                  {visibleUsers.map((user) => {
                     const editing = editingId === user.id && editForm;
                     const memberships = membershipsForForm(user.memberships);
                     return (
@@ -266,13 +273,7 @@ export default function Users() {
                 </tbody>
               </table>
             </div>
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-end gap-3 text-sm">
-                <span className="muted">Page {pagination.page} of {pagination.totalPages}</span>
-                <button className="btn btn-sm" type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
-                <button className="btn btn-sm" type="button" disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)}>Next</button>
-              </div>
-            )}
+            <Pagination page={currentPage} pageSize={USERS_PAGE_SIZE} totalItems={users.length} onPageChange={setPage} />
           </>
         )}
       </Page>
