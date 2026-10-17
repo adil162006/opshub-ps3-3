@@ -2,7 +2,7 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { deployments, siteMembers, siteVersions, sites, users } from '../../db/schema/index.js';
 import { ApiError } from '../../lib/ApiError.js';
-import { getSiteContext, requireRole } from '../shared/siteContext.js';
+import { getSiteContext } from '../shared/siteContext.js';
 import { DEFAULT_THEME, MODULES, PRESETS, validateConfig } from '../../../../frontend/src/lib/registry.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -69,7 +69,7 @@ function publicSite(site, role, config, liveVersion = null) {
 
 async function requireSiteAdmin(siteId, actorId) {
   const context = await getSiteContext(db, siteId, actorId);
-  requireRole(context.role, 'Admin');
+  if (!context.actor.isHubAdmin) throw new ApiError(403, 'Global Administrator access required');
   return context;
 }
 
@@ -100,7 +100,7 @@ export async function listSites(actorId) {
 export async function getSite(siteId, actorId, preview = false) {
   if (!UUID.test(siteId)) throw new ApiError(400, 'siteId must be a valid UUID');
   const context = await getSiteContext(db, siteId, actorId);
-  if (preview) requireRole(context.role, 'Admin');
+  if (preview && !context.actor.isHubAdmin) throw new ApiError(403, 'Global Administrator access required');
   const [site] = await db.select().from(sites).where(eq(sites.id, siteId)).limit(1);
   let live = { nodes: [], edges: [], theme: site.theme };
   let versions = [];
@@ -110,7 +110,7 @@ export async function getSite(siteId, actorId, preview = false) {
       .where(and(eq(siteVersions.siteId, siteId), eq(siteVersions.id, site.liveVersionId))).limit(1);
     live = version?.config || live;
   }
-  if (context.role === 'Admin') {
+  if (context.actor.isHubAdmin) {
     versions = await db.select({ id: siteVersions.id, version: siteVersions.version, config: siteVersions.config, note: siteVersions.note, createdAt: siteVersions.createdAt, createdBy: users.name })
       .from(siteVersions).leftJoin(users, eq(users.id, siteVersions.createdBy)).where(eq(siteVersions.siteId, siteId)).orderBy(desc(siteVersions.version));
     deploys = await db.select({ id: deployments.id, action: deployments.action, versionId: deployments.versionId, note: deployments.note, createdAt: deployments.createdAt, deployedBy: users.name })
@@ -118,7 +118,7 @@ export async function getSite(siteId, actorId, preview = false) {
   }
   const config = preview ? site.draft : live;
   return { site: { id: site.id, slug: site.slug, name: site.name, description: site.description || '', live: site.liveVersionId },
-    role: context.role, config, ...(context.role === 'Admin' ? { draft: site.draft, versions, deploys } : {}) };
+    role: context.role, config, ...(context.actor.isHubAdmin ? { draft: site.draft, versions, deploys } : {}) };
 }
 
 export async function createSite(actorId, input) {

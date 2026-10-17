@@ -13,7 +13,7 @@ import Catalogue from './pages/Catalogue';
 import Tests from './pages/Tests';
 import Settings from './pages/Settings';
 
-function Shell({ admin, children }) {
+function Shell({ globalAdminOnly = false, children }) {
   const { user, loading, error: authError, logout } = useAuth(); const nav = useNavigate();
   const { pathname } = useLocation();
   const { data: sites = [], isLoading: sitesLoading, error: sitesError } = useQuery({
@@ -22,10 +22,15 @@ function Shell({ admin, children }) {
     enabled: !!user,
   });
   const accessibleSites = sites.filter((site) => site.role);
+  const homePath = user?.isHubAdmin ? '/' : accessibleSites[0] ? `/s/${accessibleSites[0].slug}` : '/login';
   if (loading) return <div className="p-10 text-foreground">Loading your session…</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (admin && user.role !== 'Admin') return <div className="p-10 text-foreground">Admins only.</div>;
+  if (globalAdminOnly && !user.isHubAdmin) {
+    if (sitesLoading) return <div className="p-10 text-foreground">Loading your sites…</div>;
+    return <Navigate to={homePath} replace />;
+  }
   const cur = pathname.match(/^\/(?:s|preview)\/([^/]+)/)?.[1] || '';
+  const currentSite = accessibleSites.find((site) => site.slug === cur);
   const L = (to, t) => (
     <NavLink
       to={to}
@@ -45,7 +50,7 @@ function Shell({ admin, children }) {
         className="h-12 px-4 flex items-center gap-3"
         style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
       >
-        <Link to="/" className="font-bold tracking-tight text-foreground flex items-center gap-1.5">
+        <Link to={homePath} className="font-bold tracking-tight text-foreground flex items-center gap-1.5">
           ◈ OpsHub
         </Link>
         <select
@@ -62,9 +67,9 @@ function Shell({ admin, children }) {
         </select>
         {sitesLoading && <span className="text-xs muted">Loading sites…</span>}
         <nav className="flex gap-1">
-          {L('/', 'Hub')}
+          {user.isHubAdmin && L('/', 'Hub')}
           {/* {L('/catalogue', 'Catalogue')} */}
-          {user.role === 'Admin' && (
+          {user.isHubAdmin && (
             <>
               {L('/builder', 'Builder')}
               {L('/users', 'Users')}
@@ -73,7 +78,7 @@ function Shell({ admin, children }) {
         </nav>
         <div className="ml-auto text-sm flex items-center gap-3">
           <span style={{ color: 'var(--muted-foreground)' }}>
-            {user.name} · {user.role === 'Admin' ? 'Admin' : 'User'}
+            {user.name} · {user.isHubAdmin ? 'Global Admin' : currentSite?.role || 'Member'}
           </span>
           <button
             className="px-2.5 py-1 rounded-md text-sm transition-colors"
@@ -100,15 +105,15 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/verify-phone" element={<VerifyPhone />} />
-        <Route path="/" element={<Shell><Hub /></Shell>} />
+        <Route path="/" element={<Shell globalAdminOnly><Hub /></Shell>} />
         <Route path="/s/:slug/*" element={<SiteShell />} />
-        <Route path="/preview/:slug/*" element={<Shell admin><PreviewKeyed /></Shell>} />
-        <Route path="/builder" element={<Shell><BuilderIndex /></Shell>} />
-        <Route path="/builder/:slug" element={<Shell><BuilderEditor /></Shell>} />
-        <Route path="/users" element={<Shell admin><Users /></Shell>} />
+        <Route path="/preview/:slug/*" element={<Shell globalAdminOnly><PreviewKeyed /></Shell>} />
+        <Route path="/builder" element={<Shell globalAdminOnly><BuilderIndex /></Shell>} />
+        <Route path="/builder/:slug" element={<Shell globalAdminOnly><BuilderEditor /></Shell>} />
+        <Route path="/users" element={<Shell globalAdminOnly><Users /></Shell>} />
         <Route path="/catalogue" element={<Shell><Catalogue /></Shell>} />
-        <Route path="/tests" element={<Shell admin><Tests /></Shell>} />
-        <Route path="/settings" element={<Shell admin><Settings /></Shell>} />
+        <Route path="/tests" element={<Shell globalAdminOnly><Tests /></Shell>} />
+        <Route path="/settings" element={<Shell globalAdminOnly><Settings /></Shell>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />

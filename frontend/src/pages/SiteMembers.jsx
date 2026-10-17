@@ -56,7 +56,7 @@ export default function SiteMembers({ ctx }) {
 
   return (
     <Page title="Members" sub="Manage this site's members and roles. New accounts get access only to this site; existing accounts keep their other site memberships.">
-      {isSiteAdmin && (
+      {ctx.user?.isHubAdmin && (
         <form
           className="card p-4 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end"
           onSubmit={(event) => {
@@ -74,6 +74,7 @@ export default function SiteMembers({ ctx }) {
           <p className="text-xs muted sm:col-span-2 lg:col-span-5">An existing account is added to this site. New accounts receive a Minimoth phone verification code.</p>
         </form>
       )}
+      {isSiteAdmin && !ctx.user?.isHubAdmin && <p className="text-xs muted">Only global administrators can create accounts. You can still manage roles for existing site members.</p>}
       {membersQuery.isLoading && <p className="muted">Loading site members…</p>}
       {membersQuery.isError && <p role="alert" className="text-sm text-red-400">{errorMessage(membersQuery.error)}</p>}
       {!membersQuery.isLoading && !membersQuery.isError && (
