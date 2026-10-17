@@ -33,7 +33,7 @@ export default function SiteMembers({ ctx }) {
   const queryClient = useQueryClient();
   const siteId = ctx.site.id;
   const isSiteAdmin = ctx.role === 'Admin';
-  const [form, setForm] = useState({ name: '', email: '', phoneNumber: '', role: 'Member', designation: '' });
+  const [form, setForm] = useState({ name: '', email: '', role: 'Member', designation: '' });
   const membersQuery = useQuery({
     queryKey: siteMembersQueryKey(siteId),
     queryFn: () => getSiteUsers(siteId),
@@ -43,9 +43,9 @@ export default function SiteMembers({ ctx }) {
     mutationFn: (input) => addSiteUser(siteId, input),
     onSuccess: async (result) => {
       toast.ok(result.initialPasswordSent
-        ? 'User added. A phone verification code was sent.'
+        ? 'User added. They can verify their phone when they first sign in.'
         : 'Existing user added to this site; invitation sent.');
-      setForm({ name: '', email: '', phoneNumber: '', role: 'Member', designation: '' });
+      setForm({ name: '', email: '', role: 'Member', designation: '' });
       await refreshMembers();
     },
     onError: (error) => toast.err(errorMessage(error)),
@@ -78,18 +78,17 @@ export default function SiteMembers({ ctx }) {
           className="card p-4 grid sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end"
           onSubmit={(event) => {
             event.preventDefault();
-            addMutation.mutate({ name: form.designation ? `${form.name} · ${form.designation}` : form.name, email: form.email, phoneNumber: form.phoneNumber, role: form.role });
+            addMutation.mutate({ name: form.designation ? `${form.name} · ${form.designation}` : form.name, email: form.email, role: form.role });
           }}
         >
           <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
           <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-          <label><span className="lbl">Phone number</span><input className="input" type="tel" placeholder="+919876543210" pattern="\+[1-9][0-9]{7,14}" required value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} /></label>
           <label><span className="lbl">Site role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, designation: '' })}>{ROLES.map((role) => <option key={role}>{role}</option>)}</select></label>
           <DesignationSelect role={form.role} value={form.designation} onChange={(d) => setForm({ ...form, designation: d })} />
           <button className="btn btn-primary" type="submit" disabled={addMutation.isPending}>
             {addMutation.isPending ? 'Adding…' : 'Add to site'}
           </button>
-          <p className="text-xs muted sm:col-span-2 lg:col-span-5">An existing account is added to this site. New accounts receive a Minimoth phone verification code.</p>
+          <p className="text-xs muted sm:col-span-2 lg:col-span-5">An existing account is added to this site. New users set up phone verification when they first sign in.</p>
         </form>
       )}
       {isSiteAdmin && !ctx.user?.isHubAdmin && <p className="text-xs muted">Only global administrators can create accounts. You can still manage roles for existing site members.</p>}

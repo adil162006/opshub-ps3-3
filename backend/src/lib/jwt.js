@@ -15,4 +15,9 @@ export const generateToken = (payload) =>
     expiresIn: process.env.JWT_EXPIRES_IN || '8h',
   });
 
+export const generatePhoneVerificationToken = (userId) =>
+  jwt.sign({ sub: userId, purpose: 'phone-verification' }, getSecret(), {
+    expiresIn: '10m',
+  });
+
 export const verifyToken = (token) => jwt.verify(token, getSecret());

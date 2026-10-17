@@ -49,8 +49,8 @@ export default function Login() {
       nav('/');
     } catch (x) {
       const verification = x.response?.data?.details?.find?.((detail) => detail.code === 'PHONE_NOT_VERIFIED');
-      if (verification) {
-        nav(`/verify-phone?phone=${encodeURIComponent(verification.phoneNumber || '')}`);
+      if (verification?.verificationToken) {
+        nav('/verify-phone', { state: { verificationToken: verification.verificationToken } });
         return;
       }
       setErr(x.response?.data?.message || x.response?.data?.error || x.message);
