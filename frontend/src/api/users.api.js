@@ -8,6 +8,15 @@ export async function getUsers(page = 1, limit = 100) {
   return data;
 }
 
+export async function getAllUsers() {
+  const firstPage = await getUsers(1, 100);
+  const totalPages = firstPage.pagination?.totalPages || 1;
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) => getUsers(index + 2, 100)),
+  );
+  return [firstPage, ...remainingPages].flatMap(({ users = [] }) => users);
+}
+
 export async function createUser(input) {
   const { data } = await api.post('/api/users', input);
   return data;

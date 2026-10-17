@@ -86,6 +86,22 @@ export function DataTable({ columns, rows, empty = 'Nothing here yet' }) {
       : <tr><td colSpan={columns.length} className="muted text-center py-8">{empty}</td></tr>}</tbody></table></div>;
 }
 
+export function Pagination({ page, pageSize, totalItems, onPageChange }) {
+  const totalPages = Math.ceil(totalItems / pageSize);
+  if (totalPages <= 1) return null;
+
+  const firstItem = (page - 1) * pageSize + 1;
+  const lastItem = Math.min(page * pageSize, totalItems);
+  return (
+    <div className="flex items-center justify-end gap-3 text-sm">
+      <span className="muted">Showing {firstItem}–{lastItem} of {totalItems}</span>
+      <button className="btn btn-sm" type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</button>
+      <span className="muted">Page {page} of {totalPages}</span>
+      <button className="btn btn-sm" type="button" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>Next</button>
+    </div>
+  );
+}
+
 // reactive, permission-checked row hook
 export function useRows(ctx, res) {
   const siteId = ctx.site?.id;
