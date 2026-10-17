@@ -12,7 +12,7 @@
           "name": "site_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "user_id": {
           "name": "user_id",
@@ -129,7 +129,7 @@
           "name": "phone_number",
           "type": "varchar(24)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "is_verified": {
           "name": "is_verified",

@@ -17,10 +17,14 @@ export async function loginAccount(email, password) {
     passwordHash: users.passwordHash,
     isHubAdmin: users.isHubAdmin,
     isActive: users.isActive,
+    isVerified: users.isVerified,
   }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
 
   if (!user || !user.isActive || !(await comparePassword(password, user.passwordHash))) {
     throw new AppError(401, INVALID_CREDENTIALS);
+  }
+  if (!user.isVerified) {
+    throw new AppError(403, 'Verify your phone number before signing in', [{ code: 'PHONE_NOT_VERIFIED', phoneNumber: user.phoneNumber }]);
   }
 
   const memberships = user.isHubAdmin

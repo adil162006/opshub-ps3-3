@@ -4,6 +4,7 @@ import { Toaster } from './ui';
 import { useAuth } from './context/Authcontext';
 import { getSites, SITES_QUERY_KEY } from './api/site.api';
 import Login from './pages/Login';
+import VerifyPhone from './pages/VerifyPhone';
 import Hub from './pages/Hub';
 import SiteRoute from './pages/SiteRoute';
 import { BuilderEditor, BuilderIndex } from './pages/Builder';
@@ -62,7 +63,7 @@ function Shell({ admin, children }) {
         {sitesLoading && <span className="text-xs muted">Loading sites…</span>}
         <nav className="flex gap-1">
           {L('/', 'Hub')}
-          {L('/catalogue', 'Catalogue')}
+          {/* {L('/catalogue', 'Catalogue')} */}
           {user.role === 'Admin' && (
             <>
               {L('/builder', 'Builder')}
@@ -98,6 +99,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-phone" element={<VerifyPhone />} />
         <Route path="/" element={<Shell><Hub /></Shell>} />
         <Route path="/s/:slug/*" element={<SiteShell />} />
         <Route path="/preview/:slug/*" element={<Shell admin><PreviewKeyed /></Shell>} />

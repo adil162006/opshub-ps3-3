@@ -11,7 +11,7 @@ import {
 } from '../api/users.api';
 import { ROLES } from '../lib/registry';
 
-const emptyForm = () => ({ name: '', email: '', role: 'User', memberships: {} });
+const emptyForm = () => ({ name: '', email: '', phoneNumber: '', role: 'User', memberships: {} });
 const membershipsForForm = (memberships = []) => Object.fromEntries(
   memberships.map(({ siteId, role }) => [siteId, role]),
 );
@@ -61,7 +61,7 @@ export default function Users() {
   const addMutation = useMutation({
     mutationFn: createUser,
     onSuccess: async () => {
-      toast.ok('User created. Account invitation sent.');
+      toast.ok('User created. A phone verification code was sent.');
       setForm(emptyForm());
       setPage(1);
       await invalidate();
@@ -133,6 +133,7 @@ export default function Users() {
             addMutation.mutate({
               name: form.name,
               email: form.email,
+              phoneNumber: form.phoneNumber,
               role: form.role,
               memberships: form.role === 'Admin' ? [] : toMembershipList(form.memberships),
             });
@@ -142,9 +143,10 @@ export default function Users() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+            <label><span className="lbl">Phone number</span><input className="input" type="tel" placeholder="+919876543210" pattern="\+[1-9][0-9]{7,14}" required value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} /></label>
             <label><span className="lbl">Global role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="User">User</option><option value="Admin">Global Admin</option></select></label>
           </div>
-          <p className="text-xs muted">New accounts receive an initial password based on the email address and an invitation by email.</p>
+          <p className="text-xs muted">New accounts receive a phone verification code through Minimoth.</p>
           {form.role !== 'Admin' && (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <SiteRoleFields
@@ -167,7 +169,7 @@ export default function Users() {
             <div className="card overflow-x-auto">
               <table className="t">
                 <thead>
-                  <tr><th>User</th><th>Global role</th>{sites.map((site) => <th key={site.id}>{site.name}</th>)}<th>Actions</th></tr>
+                  <tr><th>User</th><th>Phone</th><th>Phone verification</th><th>Global role</th>{sites.map((site) => <th key={site.id}>{site.name}</th>)}<th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {users.map((user) => {
@@ -186,6 +188,8 @@ export default function Users() {
                             <div><div className="font-medium">{user.name}</div><div className="text-xs muted">{user.email}</div>{!user.isActive && <span className="text-xs text-amber-400">Inactive</span>}</div>
                           )}
                         </td>
+                        <td>{user.phoneNumber || '—'}</td>
+                        <td>{user.isVerified ? <Badge v="Verified" /> : <span className="text-amber-400">Not verified</span>}</td>
                         <td>
                           {editing ? (
                             <select
@@ -236,7 +240,7 @@ export default function Users() {
                       </tr>
                     );
                   })}
-                  {!users.length && <tr><td colSpan={sites.length + 3} className="muted text-center py-8">No users found.</td></tr>}
+                  {!users.length && <tr><td colSpan={sites.length + 5} className="muted text-center py-8">No users found.</td></tr>}
                 </tbody>
               </table>
             </div>

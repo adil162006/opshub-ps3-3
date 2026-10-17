@@ -48,6 +48,11 @@ export default function Login() {
       await login(email, pw);
       nav('/');
     } catch (x) {
+      const verification = x.response?.data?.details?.find?.((detail) => detail.code === 'PHONE_NOT_VERIFIED');
+      if (verification) {
+        nav(`/verify-phone?phone=${encodeURIComponent(verification.phoneNumber || '')}`);
+        return;
+      }
       setErr(x.response?.data?.message || x.response?.data?.error || x.message);
     } finally {
       setSubmitting(false);

@@ -153,8 +153,9 @@ async function createGlobalUserImpl(actorId, input) {
     return [user];
   });
 
+  let otpId;
   try {
-    const { otpId } = await mm.otp.send({ phone: phoneNumber });
+    ({ otpId } = await mm.otp.send({ phone: phoneNumber }));
     await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, created.id));
   } catch (error) {
     // Do not leave an unusable active account behind when the welcome message cannot be delivered.
@@ -212,7 +213,8 @@ export async function listSiteUsers(siteId, actorId) {
   const context = await getSiteContext(db, siteId, actorId, ['users']);
   requireRole(context.role, 'Member');
   const rows = await db.select({
-    id: users.id, name: users.name, email: users.email, isActive: users.isActive,
+    id: users.id, name: users.name, email: users.email, phoneNumber: users.phoneNumber,
+    isVerified: users.isVerified, isActive: users.isActive,
     siteId: siteMembers.siteId, role: siteMembers.role, joinedAt: siteMembers.createdAt,
   }).from(siteMembers).innerJoin(users, eq(users.id, siteMembers.userId))
     .where(eq(siteMembers.siteId, siteId)).orderBy(asc(users.name), asc(users.email));
@@ -224,6 +226,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
   requireRole(context.role, 'Admin');
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+  const phoneNumber = typeof input.phoneNumber === 'string' ? input.phoneNumber.trim() : '';
   if (!name || name.length > 160) throw new AppError(422, 'name is required and must be at most 160 characters');
   if (!EMAIL_PATTERN.test(email) || email.length > 320) throw new AppError(422, 'A valid email is required');
   const initialPassword = email.split('@')[0];
@@ -239,10 +242,11 @@ async function createSiteUserImpl(siteId, actorId, input) {
   let account;
 
   if (isNewUser) {
+    if (!PHONE_PATTERN.test(phoneNumber)) throw new AppError(422, 'A valid phone number in international format is required');
     const passwordHash = await hashPassword(initialPassword);
     account = await db.transaction(async (tx) => {
       const [created] = await tx.insert(users).values({
-        name, email, passwordHash, isHubAdmin: false, isActive: false,
+        name, email, phoneNumber, isVerified: false, passwordHash, isHubAdmin: false, isActive: false,
       }).returning({ id: users.id, name: users.name, email: users.email, isHubAdmin: users.isHubAdmin });
       await tx.insert(siteMembers).values({ siteId, userId: created.id, role });
       return created;
@@ -264,12 +268,16 @@ async function createSiteUserImpl(siteId, actorId, input) {
     });
   }
 
+  let otpId;
   try {
     await sendAccountEmail({
       name: account.name, email: account.email, password: isNewUser ? initialPassword : null,
       memberships: [{ siteId, siteName: site.name, role }],
     });
-    if (isNewUser) await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, account.id));
+    if (isNewUser) {
+      ({ otpId } = await mm.otp.send({ phone: phoneNumber }));
+      await db.update(users).set({ isActive: true, updatedAt: new Date() }).where(eq(users.id, account.id));
+    }
   } catch (error) {
     try {
       await db.delete(siteMembers).where(and(eq(siteMembers.siteId, siteId), eq(siteMembers.userId, account.id)));
@@ -286,6 +294,7 @@ async function createSiteUserImpl(siteId, actorId, input) {
       id: account.id, name: account.name, email: account.email,
       isActive: true, siteId, role,
     },
+    otpId,
     emailSent: true,
     initialPasswordSent: isNewUser,
   };

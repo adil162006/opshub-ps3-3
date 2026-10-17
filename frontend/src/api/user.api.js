@@ -13,3 +13,8 @@ export async function getMe() {
 export async function logoutUser() {
   await api.post('/api/auth/logout');
 }
+
+export async function verifyPhoneOtp(input) {
+  const { data } = await api.post('/api/auth/otp/verify', input);
+  return data;
+}

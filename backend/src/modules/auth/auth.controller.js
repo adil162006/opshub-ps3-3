@@ -1,6 +1,7 @@
 import { ApiError as AppError } from '../../lib/ApiError.js';
 import { getCurrentUser, signupGlobalAdmin } from './auth.service.js';
 import { loginAccount } from './auth.login.service.js';
+import { verifyPhoneOtp } from './auth.otp.service.js';
 
 const AUTH_COOKIE = 'token';
 
@@ -55,6 +56,11 @@ export async function signupGlobalAdminController(req, res) {
 export async function loginController(req, res) {
   const { email, password } = validateCredentials(req);
   sendLoginResponse(res, await loginAccount(email, password));
+}
+
+export async function verifyPhoneOtpController(req, res) {
+  res.set('Cache-Control', 'no-store');
+  res.json(await verifyPhoneOtp(req.body?.phoneNumber, req.body?.otp));
 }
 
 export async function getMeController(req, res) {
