@@ -1,4 +1,4 @@
-# OpsHub feature status
+# OpsHub — delivered features
 
 This file tracks the implemented prototype and its known delivery gaps. It is not a certification of production readiness. See the [documentation index](docs/README.md) for architecture, API, setup, data-model, workflow, and demo guides.
 
@@ -6,7 +6,12 @@ This file tracks the implemented prototype and its known delivery gaps. It is no
 
 OpsHub is a configuration-driven, multi-site operations hub. A shared React frontend renders pages from a site's published configuration; an Express API and PostgreSQL backend provide authentication, versioned site configuration, and operational records. The frontend has no browser-local operational database or simulator. Optional demo records are seeded into PostgreSQL by the backend.
 
-## Implemented
+### Hub layer
+- Single global JWT login with bcrypt password hashing and an HttpOnly cookie session.
+- Role matrix: Public, Member, Manager, Admin — enforced at every API route and service layer.
+- Hub page lists all sites the authenticated user can access, with per-site theme colours, module tags, and live version number.
+- Site switcher navigates between completely different products without a page reload or re-login.
+- Global user management for hub administrators.
 
 - **Module configuration:** a registry of 13 approved modules, typed inputs/outputs, defaults, presets, field definitions, and client configuration validation.
 - **Visual builder:** React Flow module canvas, typed connections, validation feedback, field and approval-step editing, themes, draft persistence, draft preview, publish, release history, and rollback.
