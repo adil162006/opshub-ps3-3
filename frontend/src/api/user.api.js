@@ -18,3 +18,8 @@ export async function verifyPhoneOtp(input) {
   const { data } = await api.post('/api/auth/otp/verify', input);
   return data;
 }
+
+export async function sendPhoneOtp(input) {
+  const { data } = await api.post('/api/auth/otp/send', input);
+  return data;
+}

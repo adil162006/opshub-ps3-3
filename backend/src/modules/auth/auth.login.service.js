@@ -2,31 +2,13 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { siteMembers, sites, users } from '../../db/schema/index.js';
 import { ApiError as AppError } from '../../lib/ApiError.js';
-import { generateToken } from '../../lib/jwt.js';
+import { generatePhoneVerificationToken, generateToken } from '../../lib/jwt.js';
 import { comparePassword } from '../../lib/password.js';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 
-/** Authenticate any account type and return its accessible sites. */
-export async function loginAccount(email, password) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const [user] = await db.select({
-    id: users.id,
-    name: users.name,
-    email: users.email,
-    passwordHash: users.passwordHash,
-    isHubAdmin: users.isHubAdmin,
-    isActive: users.isActive,
-    isVerified: users.isVerified,
-  }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
-
-  if (!user || !user.isActive || !(await comparePassword(password, user.passwordHash))) {
-    throw new AppError(401, INVALID_CREDENTIALS);
-  }
-  if (!user.isVerified) {
-    throw new AppError(403, 'Verify your phone number before signing in', [{ code: 'PHONE_NOT_VERIFIED', phoneNumber: user.phoneNumber }]);
-  }
-
+/** Create an authenticated session for a verified account. */
+export async function createAuthenticatedSession(user) {
   const memberships = user.isHubAdmin
     ? await db.select({
       id: sites.id,
@@ -68,4 +50,30 @@ export async function loginAccount(email, password) {
       role: user.isHubAdmin ? 'Admin' : site.role,
     })),
   };
+}
+
+/** Authenticate any account type and return its accessible sites. */
+export async function loginAccount(email, password) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const [user] = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    passwordHash: users.passwordHash,
+    isHubAdmin: users.isHubAdmin,
+    isActive: users.isActive,
+    isVerified: users.isVerified,
+  }).from(users).where(sql`lower(${users.email}) = ${normalizedEmail}`).limit(1);
+
+  if (!user || !user.isActive || !(await comparePassword(password, user.passwordHash))) {
+    throw new AppError(401, INVALID_CREDENTIALS);
+  }
+  if (!user.isVerified) {
+    const verificationToken = generatePhoneVerificationToken(user.id);
+    throw new AppError(403, 'Phone verification is required before signing in', [
+      { code: 'PHONE_NOT_VERIFIED', verificationToken },
+    ]);
+  }
+
+  return createAuthenticatedSession(user);
 }

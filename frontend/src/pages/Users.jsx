@@ -32,7 +32,7 @@ function DesignationSelect({ role, value, onChange, disabled }) {
 }
 
 
-const emptyForm = () => ({ name: '', email: '', phoneNumber: '', role: 'User', designation: '', memberships: {} });
+const emptyForm = () => ({ name: '', email: '', role: 'User', designation: '', memberships: {} });
 const membershipsForForm = (memberships = []) => Object.fromEntries(
   memberships.map(({ siteId, role }) => [siteId, role]),
 );
@@ -82,7 +82,7 @@ export default function Users() {
   const addMutation = useMutation({
     mutationFn: createUser,
     onSuccess: async () => {
-      toast.ok('User created. A phone verification code was sent.');
+      toast.ok('User created. They can verify their phone when they first sign in.');
       setForm(emptyForm());
       setPage(1);
       await invalidate();
@@ -154,21 +154,19 @@ export default function Users() {
             addMutation.mutate({
               name: form.designation ? `${form.name} · ${form.designation}` : form.name,
               email: form.email,
-              phoneNumber: form.phoneNumber,
               role: form.role,
               memberships: form.role === 'Admin' ? [] : toMembershipList(form.memberships),
             });
           }}
         >
           <h2 className="font-semibold">Add user</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <label><span className="lbl">Name</span><input className="input" required maxLength={160} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span className="lbl">Email</span><input className="input" type="email" required maxLength={320} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label><span className="lbl">Phone number</span><input className="input" type="tel" placeholder="+919876543210" pattern="\+[1-9][0-9]{7,14}" required value={form.phoneNumber} onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })} /></label>
             <label><span className="lbl">Global role</span><select className="input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="User">User</option><option value="Admin">Global Admin</option></select></label>
             <DesignationSelect role={form.role === 'User' ? 'Member' : form.role} value={form.designation} onChange={(d) => setForm({ ...form, designation: d })} disabled={false} />
           </div>
-          <p className="text-xs muted">New accounts receive a phone verification code through Minimoth.</p>
+          <p className="text-xs muted">Users provide and verify their phone number the first time they sign in.</p>
           {form.role !== 'Admin' && (
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <SiteRoleFields

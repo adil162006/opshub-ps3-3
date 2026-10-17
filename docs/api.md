@@ -21,8 +21,9 @@ This guide describes the Express routes mounted under `/api` in `backend/src/ser
 
 | Method | Path | Authentication | Behavior |
 |---|---|---|---|
-| POST | `/api/auth/login` | No | Accepts `{ "email": "...", "password": "..." }`; sets the HttpOnly cookie and returns user context. |
-| POST | `/api/auth/otp/verify` | No | Verifies a phone OTP; see the auth service for request and provider behavior. |
+| POST | `/api/auth/login` | No | Accepts `{ "email": "...", "password": "..." }`; verified accounts receive an HttpOnly session cookie. Unverified accounts receive a short-lived phone-verification token in the `PHONE_NOT_VERIFIED` error details. |
+| POST | `/api/auth/otp/send` | No | Accepts `{ "verificationToken": "...", "phoneNumber": "+..." }` and sends a code to the submitted number. |
+| POST | `/api/auth/otp/verify` | No | Accepts `{ "verificationToken": "...", "phoneNumber": "+...", "otp": "..." }`; saves the verified number and returns an authenticated session. |
 | POST | `/api/auth/global-admin/signup` | No | Creates the initial global administrator only when signup is permitted by the auth service. |
 | POST | `/api/auth/logout` | No | Clears the authentication cookie; returns 204. |
 | GET | `/api/auth/me` | Yes | Returns current authenticated user context. |
@@ -52,6 +53,8 @@ Configurations contain module nodes and typed edges plus theme/presentation sett
 | GET | `/api/:siteId/members` | Authenticated member of the site; minimum role is enforced by the service. |
 | POST | `/api/:siteId/members` | Global administrator. |
 | PUT, PATCH, DELETE | `/api/:siteId/members/:userId` | Authenticated; role/site checks are performed by the service. |
+
+New accounts are created with a name and email but no phone number. Users provide and verify their phone number during their first sign-in.
 
 User invitation and related email operations require working SMTP configuration. See [setup and operations](setup.md).
 
