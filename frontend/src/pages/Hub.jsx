@@ -28,24 +28,6 @@ const SITE_COLORS = {
   distribution: '#059669',
 };
 
-const SITE_ICONS = {
-  'central-stores': '📦',
-  'service-centre': '🔧',
-  distribution: '🚚',
-};
-
-const SITE_NAMES = {
-  'central-stores': 'Central Stores',
-  'service-centre': 'Service Centre',
-  distribution: 'Distribution Team',
-};
-
-const SITE_DESC = {
-  'central-stores': 'Inventory + analytics. No repair or workflow modules.',
-  'service-centre': 'Request → Approval → Repair → Return. No stock assignment.',
-  distribution: 'Request → Approval → Assignment → Consumption. Field-focused.',
-};
-
 function JsonSnippet({ cfg, color }) {
   const monoStyle = {
     background: 'oklch(0.12 0.012 260)',
@@ -78,10 +60,26 @@ function JsonSnippet({ cfg, color }) {
   );
 }
 
-function HowItWorks() {
-  const [active, setActive] = useState('central-stores');
-  const cfg = EXAMPLE_CONFIGS[active];
-  const color = SITE_COLORS[active];
+function HowItWorks({ sites = [] }) {
+  const PALETTE = ['#4f46e5', '#0891b2', '#059669', '#f97316', '#8b5cf6', '#e11d48'];
+
+  const configMap = sites.length
+    ? Object.fromEntries(sites.map((s) => [s.slug, {
+        slug: s.slug,
+        theme: { primary: s.theme?.primary || '#4f46e5' },
+        modules: s.moduleTypes || [],
+      }]))
+    : EXAMPLE_CONFIGS;
+
+  const colorMap = sites.length
+    ? Object.fromEntries(sites.map((s, i) => [s.slug, s.theme?.primary || PALETTE[i % PALETTE.length]]))
+    : SITE_COLORS;
+
+  const slugs = Object.keys(configMap);
+  const [active, setActive] = useState(slugs[0] || 'central-stores');
+  const activeSlug = slugs.includes(active) ? active : slugs[0];
+  const cfg = configMap[activeSlug];
+  const color = colorMap[activeSlug] || '#4f46e5';
 
   return (
     <div className="px-8 pb-8">
@@ -118,15 +116,15 @@ function HowItWorks() {
               Admin drags modules onto the builder canvas. Saved as JSON — no code written.
             </p>
             <div className="flex gap-1.5 flex-wrap mb-2">
-              {Object.keys(EXAMPLE_CONFIGS).map((slug) => (
+              {slugs.map((slug) => (
                 <button
                   key={slug}
                   onClick={() => setActive(slug)}
                   className="text-xs px-2.5 py-1 rounded-full font-medium transition-all"
                   style={{
-                    background: active === slug ? `${SITE_COLORS[slug]}22` : 'var(--secondary)',
-                    color: active === slug ? SITE_COLORS[slug] : 'var(--muted-foreground)',
-                    border: `1px solid ${active === slug ? SITE_COLORS[slug] : 'var(--border)'}`,
+                    background: activeSlug === slug ? `${colorMap[slug]}22` : 'var(--secondary)',
+                    color: activeSlug === slug ? colorMap[slug] : 'var(--muted-foreground)',
+                    border: `1px solid ${activeSlug === slug ? colorMap[slug] : 'var(--border)'}`,
                   }}
                 >
                   /{slug}
@@ -172,17 +170,19 @@ function HowItWorks() {
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
                   style={{ background: `${color}22`, color }}
                 >
-                  {SITE_ICONS[active]}
+                  {sites.find((s) => s.slug === activeSlug)?.icon || '◈'}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>{SITE_NAMES[active]}</div>
-                  <div className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>/{active}</div>
+                  <div className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>
+                    {sites.find((s) => s.slug === activeSlug)?.name || activeSlug}
+                  </div>
+                  <div className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>/{activeSlug}</div>
                 </div>
                 <div
                   className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium"
                   style={{ background: `${color}22`, color }}
                 >
-                  v1 live
+                  v{sites.find((s) => s.slug === activeSlug)?.live ?? 1} live
                 </div>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -200,7 +200,7 @@ function HowItWorks() {
                 className="text-[10px] pt-1"
                 style={{ color: 'var(--muted-foreground)', borderTop: '1px solid var(--border)' }}
               >
-                {SITE_DESC[active]}
+                {(cfg.modules || []).length} modules enabled
               </div>
             </div>
           </div>
@@ -251,7 +251,7 @@ export default function Hub() {
       {error && <div role="alert" className="px-8 pb-6 text-sm text-red-400">Could not load your sites: {error.message}</div>}
 
       {/* How it works explainer */}
-      <HowItWorks />
+      <HowItWorks sites={sites} />
 
       {/* Site cards */}
       <div className="px-8 pb-10">

@@ -5,7 +5,7 @@ import 'reactflow/dist/style.css';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createSite, deleteSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
 import { useAuth } from '../context/Authcontext';
-import { DEFAULT_THEME, MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
+import { DEFAULT_THEME, inputGuide, MODULES, MODULE_TIPS, ORDER, PRESETS, ROLES, TYPE_LABEL, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
 import { Badge, toast, when } from '../ui';
 
 const errorMessage = (error) => error.response?.data?.message || error.response?.data?.error || error.message;
@@ -48,8 +48,8 @@ function ModuleNode({ data, selected }) {
     <div className="rounded-xl shadow-md px-3 py-2 w-52" style={{ background: 'var(--card)', border: `2px solid ${selected ? 'oklch(0.82 0.16 85)' : bad ? 'var(--destructive)' : 'var(--border)'}`, color: 'var(--foreground)' }}>
       <Handle type="target" position={Position.Left} /><Handle type="source" position={Position.Right} />
       <div className="flex items-center gap-2"><span className="text-lg">{m.icon}</span><div className="text-sm font-semibold leading-tight">{m.name}</div></div>
-      <div className="text-[10px] mt-1" style={{ color: 'var(--muted-foreground)' }}>in: {accepts(data.type).map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
-      <div className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>out: {m.outputs.map((t) => TYPE_LABEL[t]).join(', ') || '—'}</div>
+      <div className="text-[10px] mt-1" style={{ color: 'var(--muted-foreground)' }}>Needs: {inputGuide(data.type).required.join(' + ') || 'no incoming link'}</div>
+      <div className="text-[10px]" style={{ color: 'var(--muted-foreground)' }}>Creates: {m.outputs.map((t) => TYPE_LABEL[t]).join(', ') || 'no data output'}</div>
       {bad ? <div className="text-[10px] mt-1" style={{ color: 'var(--destructive)' }}>⚠ {data.issues[0]}</div> : <div className="text-[10px] mt-1" style={{ color: 'var(--success)' }}>✓ inputs satisfied</div>}
     </div>);
 }
@@ -140,7 +140,10 @@ function Canvas({ site }) {
   const onConnect = (c) => {
     const s = nodes.find((n) => n.id === c.source); const t = nodes.find((n) => n.id === c.target);
     const type = connectionType(s.data.type, t.data.type);
-    if (!type) return toast.err(`Can’t connect ${MODULES[s.data.type].name} → ${MODULES[t.data.type].name}. ${MODULES[t.data.type].name} accepts: ${accepts(t.data.type).map((x) => TYPE_LABEL[x]).join(', ') || 'nothing'}.`);
+    if (!type) {
+      const guide = inputGuide(t.data.type);
+      return toast.err(`Can’t connect ${MODULES[s.data.type].name} to ${MODULES[t.data.type].name}. It needs: ${guide.required.join(' + ') || 'no incoming link'}${guide.optional.length ? `. Optional: ${guide.optional.join(', ')}` : ''}.`);
+    }
     if (edges.some((e) => e.source === c.source && e.target === c.target)) return undefined;
     return setEdges((es) => addEdge({ ...c, id: `e-${c.source}-${c.target}`, label: TYPE_LABEL[type], animated: true }, es));
   };
@@ -200,9 +203,13 @@ function Canvas({ site }) {
         <div className="lbl">Module palette</div><p className="text-[11px] muted mb-2">Drag onto canvas or click. 13 approved modules.</p>
         {['Core', 'Stock', 'Workflow', 'Tracking', 'Insight'].map((g) => (
           <div key={g} className="mb-3"><div className="text-[10px] font-semibold uppercase mb-1" style={{ color: 'var(--muted-foreground)', letterSpacing: '0.08em' }}>{g}</div>
-            {ORDER.filter((t) => MODULES[t].group === g).map((t) => { const used = nodes.some((n) => n.data.type === t); return (
-              <div key={t} draggable={!used} onDragStart={(e) => e.dataTransfer.setData('application/opshub', t)} onClick={() => !used && addModule(t)} title={MODULES[t].desc}
-                className={`text-sm px-2 py-1.5 rounded-lg mb-1 transition-colors ${used ? 'opacity-40' : 'cursor-grab'}`} style={{ border: '1px solid var(--border)', background: used ? 'transparent' : 'var(--secondary)' }}>{MODULES[t].icon} {MODULES[t].name}</div>); })}</div>))}
+            {ORDER.filter((t) => MODULES[t].group === g).map((t) => { const used = nodes.some((n) => n.data.type === t); const guide = inputGuide(t); return (
+              <div key={t} draggable={!used} onDragStart={(e) => e.dataTransfer.setData('application/opshub', t)} onClick={() => !used && addModule(t)} title={`${MODULES[t].desc} ${MODULE_TIPS[t]}`}
+                className={`text-sm px-2 py-1.5 rounded-lg mb-1 transition-colors ${used ? 'opacity-40' : 'cursor-grab'}`} style={{ border: '1px solid var(--border)', background: used ? 'transparent' : 'var(--secondary)' }}>
+                <div>{MODULES[t].icon} {MODULES[t].name}</div>
+                <div className="text-[10px] muted mt-0.5">Needs: {guide.required.join(' + ') || 'no incoming link'}</div>
+                {guide.optional.length > 0 && <div className="text-[10px] muted">Optional: {guide.optional.join(', ')}</div>}
+              </div>); })}</div>))}
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
         <div className="px-3 py-2 flex items-center gap-2 flex-wrap text-sm" style={{ borderBottom: '1px solid var(--border)', background: 'var(--card)' }}>
@@ -229,6 +236,13 @@ function Canvas({ site }) {
             <>
               <div className="flex items-center gap-2"><span className="text-xl">{MODULES[sel.data.type].icon}</span><b>{MODULES[sel.data.type].name}</b></div>
               <p className="text-xs muted">{MODULES[sel.data.type].desc}</p>
+              <div className="rounded-lg border p-2 space-y-1">
+                <div className="lbl">Connection guide</div>
+                <div className="text-xs"><b>Required:</b> {inputGuide(sel.data.type).required.join(' AND ') || 'No incoming connection; this can be a starting module.'}</div>
+                {inputGuide(sel.data.type).optional.length > 0 && <div className="text-xs"><b>Optional:</b> {inputGuide(sel.data.type).optional.join(', ')}</div>}
+                <div className="text-xs"><b>Creates:</b> {MODULES[sel.data.type].outputs.map((t) => TYPE_LABEL[t]).join(', ') || 'No data output'}</div>
+                <p className="text-xs muted">{MODULE_TIPS[sel.data.type]}</p>
+              </div>
               <div><label className="lbl">Label</label><input className="input" value={sel.data.label} onChange={(e) => patch(sel.id, { label: e.target.value })} /></div>
               {sel.data.config?.fields && <div><label className="lbl">Fields & calculated fields</label><FieldsEditor fields={sel.data.config.fields} onChange={(fields) => patchCfg(sel.id, { fields })} /></div>}
               {sel.data.type === 'approval' && (
@@ -239,13 +253,14 @@ function Canvas({ site }) {
               <button className="btn btn-sm" onClick={() => removeModule(sel.id)}>Remove module</button>
             </>) : (
             <>
-              <p className="muted text-xs">Select a module to configure it. Connect nodes by dragging from one handle to another — links are typed, so e.g. Approval needs a Request.</p>
+              <p className="muted text-xs">Select a module to see its setup guide. Drag from a listed source module into the module that needs it; links the module cannot use are rejected.</p>
               <div className="lbl">Validation</div>
               {v.errors.length ? v.errors.map((e) => <div key={e} className="text-xs" style={{ color: 'var(--destructive)' }}>⚠ {e}</div>) : <div className="text-xs" style={{ color: 'var(--success)' }}>✓ Ready to publish</div>}
             </>))}
           {tab === 'theme' && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2"><div><label className="lbl">Primary</label><input type="color" className="input h-9 p-1" value={theme.primary} onChange={(e) => th('primary', e.target.value)} /></div><div><label className="lbl">Accent</label><input type="color" className="input h-9 p-1" value={theme.accent} onChange={(e) => th('accent', e.target.value)} /></div></div>
+              <div><label className="lbl">Background color</label><input type="color" className="input h-9 p-1" value={theme.background} onChange={(e) => th('background', e.target.value)} /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div><label className="lbl">Layout</label><select className="input" value={theme.layout} onChange={(e) => th('layout', e.target.value)}><option>sidebar</option><option>topbar</option></select></div>
                 <div><label className="lbl">Mode</label><select className="input" value={theme.mode} onChange={(e) => th('mode', e.target.value)}><option>light</option><option>dark</option></select></div>

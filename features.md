@@ -13,7 +13,7 @@ OpsHub is a configuration-driven, multi-site operations hub. A shared React fron
 - Site switcher navigates between completely different products without a page reload or re-login.
 - Global user management for hub administrators.
 
-- **Module configuration:** a registry of 13 approved modules, typed inputs/outputs, defaults, presets, field definitions, and client configuration validation.
+- **Module configuration:** a registry of 13 approved modules, typed inputs/outputs, defaults, presets, field definitions, client configuration validation, plain-language connection guidance, and configurable site background color in the visual builder.
 - **Visual builder:** React Flow module canvas, typed connections, validation feedback, field and approval-step editing, themes, draft persistence, draft preview, publish, release history, and rollback.
 - **Configuration-driven runtime:** site navigation and page rendering derive from enabled modules and published site configuration rather than slug-specific feature branches.
 - **Identity and access:** backend-issued JWT in an HttpOnly cookie, password hashing, active-account checks, global administrator operations, site membership, and service-level role checks.
@@ -38,6 +38,7 @@ OpsHub is a configuration-driven, multi-site operations hub. A shared React fron
 
 - [x] Render navigation and pages based on enabled published modules.
 - [x] Validate approved module types and typed configuration connections in the builder.
+- [x] Explain each module's required and optional connections in plain language before publishing.
 - [x] Save drafts, preview drafts, publish versioned configuration, view releases, and roll back.
 - [x] Implement site-aware authentication, role checks, and operational APIs.
 - [x] Implement request, approval, assignment, stock movement, consumption, return, and repair service flows.

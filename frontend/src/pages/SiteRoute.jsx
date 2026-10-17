@@ -35,9 +35,11 @@ export default function SiteRoute({ preview = false }) {
 
   const theme = useMemo(() => {
     const backendTheme = siteData?.config?.theme || remoteSite?.theme || {};
+    const background = backendTheme.background || backendTheme.backgroundColor || DEFAULT_THEME.background;
     return {
       ...DEFAULT_THEME,
       ...backendTheme,
+      background: /^#[0-9a-f]{6}$/i.test(background) ? background : DEFAULT_THEME.background,
       primary: backendTheme.primary || backendTheme.primaryColor || DEFAULT_THEME.primary,
       accent: backendTheme.accent || backendTheme.accentColor || backendTheme.primaryColor || DEFAULT_THEME.accent,
       radius: backendTheme.radius ?? (Number.parseFloat(backendTheme.borderRadius) || DEFAULT_THEME.radius),
@@ -81,16 +83,30 @@ export default function SiteRoute({ preview = false }) {
 
   const { ctx } = state; const t = ctx.theme;
   const primary = t.primary || 'oklch(0.82 0.16 85)';
+  const background = t.background || DEFAULT_THEME.background;
+  const backgroundRgb = background.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)?.slice(1).map((channel) => Number.parseInt(channel, 16) / 255) || [0.09, 0.1, 0.12];
+  const isLightBackground = backgroundRgb.reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0) > 0.45;
+  const foreground = isLightBackground ? '#111827' : '#f3f4f6';
+  const surfaceTone = isLightBackground ? 'black' : 'white';
 
-  // Always dark base; per-site primary/accent colors layer on top
   const style = {
+    '--background': background,
+    '--foreground': foreground,
+    '--card': `color-mix(in srgb, ${background}, ${surfaceTone} 8%)`,
+    '--card-foreground': foreground,
+    '--popover': `color-mix(in srgb, ${background}, ${surfaceTone} 8%)`,
+    '--popover-foreground': foreground,
+    '--secondary': `color-mix(in srgb, ${background}, ${surfaceTone} 12%)`,
+    '--secondary-foreground': foreground,
+    '--muted': `color-mix(in srgb, ${background}, ${surfaceTone} 12%)`,
+    '--muted-foreground': `color-mix(in srgb, ${foreground}, ${background} 35%)`,
     '--primary': primary,
     '--accent': t.accent || primary,
     '--radius': `${t.radius ?? 10}px`,
     fontFamily: FONTS[t.font] || FONTS.Inter,
     minHeight: 'calc(100vh - 48px)',
-    background: 'var(--background)',
-    color: 'var(--foreground)',
+    background,
+    color: foreground,
   };
 
   const pages = pagesOf(ctx.config);
