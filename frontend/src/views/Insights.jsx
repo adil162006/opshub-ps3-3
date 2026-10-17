@@ -9,6 +9,12 @@ import { isUuid } from '../utils/uuid';
 
 const sum = (rows, kf, vf) => { const m = {}; rows.forEach((r) => { const k = kf(r) || 'n/a'; m[k] = (m[k] || 0) + vf(r); }); return Object.entries(m).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 })); };
 const Chart = ({ title, children }) => <div className="card p-4"><div className="lbl">{title}</div><div style={{ height: 240 }}><ResponsiveContainer>{children}</ResponsiveContainer></div></div>;
+const tooltipProps = {
+  wrapperClassName: 'analytics-tooltip',
+  contentStyle: { backgroundColor: '#fff', border: '1px solid #d1d5db' },
+  labelStyle: { color: '#000' },
+  itemStyle: { color: '#000' },
+};
 
 export function AnalyticsView({ ctx }) {
   const siteId = ctx.site?.id;
@@ -53,12 +59,12 @@ export function AnalyticsView({ ctx }) {
         {m('returns') && <Stat label="Returns" value={retCount} />}
       </div>
       <div className="grid md:grid-cols-2 gap-3">
-        {m('inventory') && <Chart title="Stock value by category"><BarChart data={catData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Bar dataKey="value" fill={p} radius={[4, 4, 0, 0]} /></BarChart></Chart>}
-        {m('inventory') && <Chart title="Quantity vs reorder level (lowest 8)"><BarChart data={reorderData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="sku" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Bar dataKey="qty" fill={p} /><Bar dataKey="reorder" fill={a} /></BarChart></Chart>}
-        {m('request') && <Chart title="Requests by status"><PieChart><Pie data={reqData} dataKey="value" nameKey="name" label outerRadius={85}>{pal.map((c, i) => <Cell key={i} fill={c} />)}</Pie><Tooltip /></PieChart></Chart>}
-        {m('assignment') && <Chart title="Issued vs remaining by assignee"><BarChart data={asgData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Bar dataKey="issued" fill={p} /><Bar dataKey="remaining" fill={a} /></BarChart></Chart>}
-        {m('consumption') && <Chart title="Consumption over time"><LineChart data={conData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip /><Line dataKey="value" stroke={p} strokeWidth={2} /></LineChart></Chart>}
-        {m('repair') && <Chart title="Repairs by stage"><BarChart data={repData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis allowDecimals={false} fontSize={11} /><Tooltip /><Bar dataKey="value" fill={a} radius={[4, 4, 0, 0]} /></BarChart></Chart>}
+        {m('inventory') && <Chart title="Stock value by category"><BarChart data={catData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip {...tooltipProps} /><Bar dataKey="value" fill={p} radius={[4, 4, 0, 0]} /></BarChart></Chart>}
+        {m('inventory') && <Chart title="Quantity vs reorder level (lowest 8)"><BarChart data={reorderData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="sku" fontSize={11} /><YAxis fontSize={11} /><Tooltip {...tooltipProps} /><Bar dataKey="qty" fill={p} /><Bar dataKey="reorder" fill={a} /></BarChart></Chart>}
+        {m('request') && <Chart title="Requests by status"><PieChart><Pie data={reqData} dataKey="value" nameKey="name" label outerRadius={85}>{pal.map((c, i) => <Cell key={i} fill={c} />)}</Pie><Tooltip {...tooltipProps} /></PieChart></Chart>}
+        {m('assignment') && <Chart title="Issued vs remaining by assignee"><BarChart data={asgData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip {...tooltipProps} /><Bar dataKey="issued" fill={p} /><Bar dataKey="remaining" fill={a} /></BarChart></Chart>}
+        {m('consumption') && <Chart title="Consumption over time"><LineChart data={conData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis fontSize={11} /><Tooltip {...tooltipProps} /><Line dataKey="value" stroke={p} strokeWidth={2} /></LineChart></Chart>}
+        {m('repair') && <Chart title="Repairs by stage"><BarChart data={repData}><CartesianGrid strokeDasharray="3 3" opacity={.3} /><XAxis dataKey="name" fontSize={11} /><YAxis allowDecimals={false} fontSize={11} /><Tooltip {...tooltipProps} /><Bar dataKey="value" fill={a} radius={[4, 4, 0, 0]} /></BarChart></Chart>}
       </div>
       {lowStockRows.length > 0 && <><h2 className="font-semibold">Low stock</h2><DataTable rows={lowStockRows} columns={[{ key: 'sku', label: 'SKU' }, { key: 'name', label: 'Name' }, { key: 'qty', label: 'Qty' }, { key: 'reorder', label: 'Reorder at' }]} /></>}
     </Page>);

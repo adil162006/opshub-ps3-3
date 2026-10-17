@@ -159,6 +159,9 @@ optgroup {
 /* React Flow node */
 .react-flow__node-module { padding: 0; border: 0; background: transparent; }
 
+.analytics-tooltip,
+.analytics-tooltip * { color: #000 !important; }
+
 /* Scrollbar */
 * { scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
 
