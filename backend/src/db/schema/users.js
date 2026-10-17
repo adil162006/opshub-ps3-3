@@ -7,6 +7,8 @@ export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 160 }).notNull(),
   email: varchar('email', { length: 320 }).notNull(),
+  phoneNumber: varchar('phone_number', { length: 24 }).notNull(),
+  isVerified: boolean('is_verified').notNull().default(false),
   passwordHash: text('password_hash').notNull(),
   isHubAdmin: boolean('is_hub_admin').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
