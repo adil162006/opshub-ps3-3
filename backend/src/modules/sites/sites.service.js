@@ -13,6 +13,9 @@ function validateDraft(config, { allowIncomplete = false } = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config) || !Array.isArray(config.nodes) || !Array.isArray(config.edges)) {
     throw new ApiError(422, 'Draft must contain nodes and edges arrays');
   }
+  if (config.theme?.background !== undefined && (typeof config.theme.background !== 'string' || !/^#[0-9a-f]{6}$/i.test(config.theme.background))) {
+    throw new ApiError(422, 'Theme background must be a 6-digit hex color');
+  }
   const nodeIds = new Set();
   for (const node of config.nodes) {
     if (!node || typeof node.id !== 'string' || !node.id || !node.data || !MODULES[node.data.type]) {

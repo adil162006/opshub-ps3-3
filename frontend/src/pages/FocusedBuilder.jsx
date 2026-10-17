@@ -128,6 +128,7 @@ export function FocusedBuilder() {
           <div className="grid sm:grid-cols-2 gap-3">
             <label><span className="lbl">Primary color</span><input className="input h-10 p-1" type="color" value={theme.primary} onChange={(e) => updateTheme('primary', e.target.value)} /></label>
             <label><span className="lbl">Accent color</span><input className="input h-10 p-1" type="color" value={theme.accent} onChange={(e) => updateTheme('accent', e.target.value)} /></label>
+            <label><span className="lbl">Background color</span><input className="input h-10 p-1" type="color" value={theme.background} onChange={(e) => updateTheme('background', e.target.value)} /></label>
             <label><span className="lbl">Mode</span><select className="input" value={theme.mode} onChange={(e) => updateTheme('mode', e.target.value)}><option value="light">Light</option><option value="dark">Dark</option></select></label>
             <label><span className="lbl">Layout</span><select className="input" value={theme.layout} onChange={(e) => updateTheme('layout', e.target.value)}><option value="sidebar">Sidebar</option><option value="topbar">Top bar</option></select></label>
           </div>
