@@ -50,6 +50,13 @@
       "when": 1792207037918,
       "tag": "0006_greedy_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792207037919,
+      "tag": "0007_backfill_legacy_user_phones",
+      "breakpoints": true
     }
   ]
 }
