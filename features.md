@@ -1,71 +1,41 @@
-﻿# OpsHub feature status
+# OpsHub feature status
 
 ## Summary
 
-The frontend and backend are now partially connected, but OpsHub does **not yet meet the full delivery requirements**. UUID-backed published sites can use the HTTP API for module data and configuration. PostgreSQL RLS, database-backed integration coverage, and a deployed service setup remain pending. Browser-local demo and isolation tools remain available for non-UUID sample data.
+The frontend uses the backend API for authentication, site configuration, and operational records. It contains no browser-local operational database, demo seed records, or simulator fallback. PostgreSQL row-level security, backend integration tests, and a deployed service setup remain pending. See the guides linked from [README](README.md).
 
-Status labels:
+## Implemented
 
-- **Made (frontend prototype):** implemented in the browser-based demo; not evidence of a production backend.
-- **Partial:** a UI or prototype exists, but the requirement is incomplete or not consistently available.
-- **Pending:** not implemented.
+- A shared frontend module registry at `frontend/src/lib/registry.js` defines the approved 13 module types, typed connections, defaults, presets, page metadata, and configuration validation.
+- The React Flow builder supports module setup, typed connections, configuration validation, field editing, approval steps, themes, draft preview, publish, release history, and rollback through backend site APIs.
+- Site navigation and rendered pages derive from enabled modules in the saved site configuration.
+- Operational views call backend APIs for inventory, requests, approvals, assignments, consumption, returns, repairs, analytics, and reports.
+- The backend provides Express routes, Drizzle schema/migrations, server-issued authentication, role checks, and service modules for operational workflows.
+- Backend seed scripts provide optional development users, sites/configurations, and operational records. Those records are server-side only.
 
-## Made in the frontend prototype
+## Remaining gaps
 
-- One sign-in screen, seeded demo users, a hub showing the three example sites, and a site switcher.
-- Site-specific seeded themes, layouts, configurations, sample records, and role memberships.
-- A registry containing all 13 approved module types, with input/output types, dependencies, defaults, and three presets.
-- A React Flow builder with a module palette, drag-and-drop, typed connections, configuration validation, field editing, approval-step editing, and theme controls.
-- Configurable fields and calculated fields, including examples such as `qty * price`, with validation in the prototype.
-- Draft preview, publish validation, numbered releases, release history, and rollback in browser state.
-- Prototype screens for inventory, requests, approvals, assignments, assignment/field view, consumption, returns, PCB repair, analytics, reports, access, and members.
-- A simulated request â†’ approval â†’ assignment flow with stock decrement and rollback-on-error semantics in the in-memory transaction layer.
-- Recharts dashboards, and browser-based Excel export plus inventory import/upsert with role checks in the simulated API.
-- Seeded demo data, browser-based JSON backup/restore/reset, and a frontend isolation/RBAC test suite.
+- PostgreSQL row-level security is not installed. Tenant isolation currently relies on API/service checks and same-site relational constraints.
+- Backend integration tests for authentication, permissions, transaction rollback/concurrency, and cross-site isolation remain pending. The backend `test` script is a placeholder.
+- No deployed service or browser-to-API-to-database end-to-end environment is configured.
 
-The module registry and simulated API are in `frontend/src/lib/registry.js` and `frontend/src/lib/api.js`.
+## Backend delivery checklist
 
-## Connected frontend paths
-
-- Published site module reads and writes use the backend HTTP API for UUID-backed sites; non-UUID demo sites continue to use the browser simulator.
-- Inventory, requests, returns, repairs, reports/workbooks, approvals, assignments, consumption, and analytics use backend routes. Inventory category and stock movement HTTP functions are available to the frontend.
-- The focused builder saves and publishes through the site API. The main React Flow builder also uses the site API.
-- Requests use the cookie-backed login session and Axios sends credentials with API calls.
-
-## Frontend gaps and limitations
-
-
-- The shell links to Hub and Catalogue, and exposes Builder and Users for admins. Prototype checks and browser backup settings are not linked in the shell.
-- **The offline simulator remains in the repository.** Isolation/demo tools and non-UUID sample sites still use browser state; live HTTP behavior requires UUID-backed sites and an available PostgreSQL service.
-- **Browser-local data is not shared or durable across users/devices.** A server-backed site provisioning API and shared database are implemented, but no deployed service is configured; browser-local demo sites remain.
-- **Prototype isolation tests do not prove database isolation.** They exercise the simulated API only; PostgreSQL row-level security is not implemented, and real database isolation has not been verified.
-- **Database-level tenant isolation is incomplete.** The canonical schema is defined in `backend/src/db/schema/` and migrated through `backend/drizzle/`. PostgreSQL row-level security is still pending for business tables; `frontend/docs/schema.sql` now points to that canonical source.
-- **Documentation is available.** See the repository [README](README.md), [architecture](docs/architecture.md), [API reference](docs/api.md), [data model](docs/data-model.md), [setup guide](docs/setup.md), and [workflow guide](docs/workflows.md). These documents should be kept aligned as code changes.
-- **No end-to-end tests exercise a real browser-to-API-to-PostgreSQL deployment.**
-
-## Backend: implementation in progress
-
-The backend has an Express service, Drizzle schema/migrations, server-issued JWT authentication, role checks, site configuration lifecycle endpoints, and service modules for operational workflows. The migration/seed workflow has been run against PostgreSQL. UUID-backed frontend sites can use the HTTP API; sample non-UUID sites and simulator paths remain browser-local.
-
-- [x] Implement Express startup, environment loading, configurable CORS origins, liveness/readiness endpoints, centralized errors, and graceful database shutdown.
-- [x] Define Drizzle tables and migrations for users, sites, site memberships, versions/deploy history, inventory, requests, approvals, assignments, consumption, returns, repairs, reports jobs, and audit data.
-- [x] Implement server-side password hashing, JWT issuance/verification, authentication middleware, and database-backed role checks.
-- [x] Implement REST routes for login/current user; sites; draft, publish, preview, versions, rollback; global users and site members; and the operational resources.
-- [x] Scope service queries by site and use same-site foreign keys for business record references.
-- [x] Implement approval-chain transitions, assignment, consumption, returns, and repair lifecycle services.
-- [x] Make assignment stock decrement, request state change, stock movement, and assignment creation transactional with row locks and quantity guards.
-- [x] Persist draft and published configuration as JSONB, validate module connections/fields, and store versioned publish/rollback history.
-- [x] Implement role-restricted spreadsheet export and atomic inventory import paths.
-- [x] Provide backend environment example, setup documentation, repeatable migrations, and initial site configuration seeding.
-- [ ] Enforce tenant isolation in PostgreSQL with row-level security on every business table. API-level site scoping and same-site foreign keys are present, but database RLS policies are not yet installed.
-- [ ] Connect the frontend to the real HTTP API and PostgreSQL-backed authentication/data; deployed behavior still relies on the browser simulator.
-- [ ] Add backend unit/integration tests for authentication, permissions, endpoint coverage, transaction rollback/concurrency, and cross-site isolation against PostgreSQL. The backend `test` script remains a placeholder.
-- [ ] Verify the migrations and seed against a real PostgreSQL instance and complete the browser-to-API-to-database demo.
+- [x] Express startup, environment loading, configurable CORS origins, health/readiness endpoints, centralized errors, and graceful database shutdown.
+- [x] Drizzle tables and migrations for users, sites, memberships, versions/deploy history, operational records, reports jobs, and audit data.
+- [x] Server-side password hashing, authentication, and database-backed role checks.
+- [x] REST routes for authentication, sites/configuration lifecycle, users/members, and operational resources.
+- [x] Site-scoped queries and same-site foreign keys for business record references.
+- [x] Approval, assignment, consumption, return, and repair lifecycle services.
+- [x] Transactional assignment stock decrement and request state changes.
+- [x] Versioned draft/published configuration with validation and rollback.
+- [x] Role-restricted workbook export and inventory import paths.
+- [ ] Enforce tenant isolation in PostgreSQL with RLS on every business table.
+- [ ] Add backend integration coverage and verify browser-to-API-to-database workflows.
 
 ## Delivery checks still required
 
-- [x] Published pages and navigation are derived from enabled modules in configuration without site-slug-specific frontend code.
-- [ ] Demonstrate the same three sites using a shared backend and database while proving cross-site reads and writes are denied at both API and database levels.
-- [ ] Complete the supplied live-demo script, including enabling Returns on Distribution and role-restricted Excel import/export against the real service.
-- [x] Add and align the architecture diagram, module registry overview, data model/API reference, setup/workflow guides, and project README with the implemented system.
-- [ ] Run the full frontend build and prototype tests, plus backend and end-to-end tests after the server implementation is complete.
+- [x] Render pages and navigation from enabled module configuration without slug-specific behavior.
+- [ ] Prove cross-site reads and writes are denied at both API and database levels.
+- [ ] Complete the live workflow demonstration and role-restricted import/export against the real service.
+- [ ] Deploy a shared backend and database and verify the full flow.

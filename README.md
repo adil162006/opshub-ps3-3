@@ -4,7 +4,7 @@ OpsHub is a configuration driven operations hub for multiple sites. A shared Rea
 
 ## Project status
 
-This is a working project prototype, not a production-hardened multi-tenant service. UUID-backed sites can use the backend API. The frontend still contains a browser-local simulator for demo/sample data. PostgreSQL row-level security (RLS), backend integration tests, and a deployed service are not in place. See [features.md](features.md) for the delivery checklist and [docs/architecture.md](docs/architecture.md) for boundaries and flows.
+This is a working project prototype, not a production-hardened multi-tenant service. The frontend uses the backend API for site configuration and operational records; it has no browser-local demo database. PostgreSQL row-level security (RLS), backend integration tests, and a deployed service are not in place. See [features.md](features.md) for the delivery checklist and [docs/architecture.md](docs/architecture.md) for boundaries and flows.
 
 ## Quick start
 
@@ -37,7 +37,6 @@ From repository root:
 ```bash
 npm --prefix frontend run dev
 npm --prefix frontend run build
-npm --prefix frontend run test:isolation
 ```
 
 From `backend/`: `npm run dev`, `npm run db:migrate`, `npm run db:seed`, `npm run db:generate`, `npm run db:push`, and `npm run db:studio`. The backend `npm test` script is a placeholder and fails intentionally; it is not a test suite.
@@ -53,4 +52,4 @@ From `backend/`: `npm run dev`, `npm run db:migrate`, `npm run db:seed`, `npm ru
 
 ## Source of truth
 
-The approved module types and configuration validation live in `frontend/src/lib/registry.js`. The canonical database schema is `backend/src/db/schema/`, with migrations in `backend/drizzle/`. `frontend/docs/schema.sql` is a pointer to the backend schema; it is not a standalone migration.
+The approved frontend module types, typed connections, defaults, presets, and configuration validation live in `frontend/src/lib/registry.js`. Runtime site configuration and operational records come from the backend API; there is no browser-local demo database. The canonical database schema is `backend/src/db/schema/`, with migrations in `backend/drizzle/`. `frontend/docs/schema.sql` is a pointer to the backend schema; it is not a standalone migration.

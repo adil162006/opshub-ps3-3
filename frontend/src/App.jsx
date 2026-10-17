@@ -10,8 +10,6 @@ import SiteRoute from './pages/SiteRoute';
 import { BuilderEditor, BuilderIndex } from './pages/Builder';
 import Users from './pages/Users';
 import Catalogue from './pages/Catalogue';
-import Tests from './pages/Tests';
-import Settings from './pages/Settings';
 
 function Shell({ globalAdminOnly = false, children }) {
   const { user, loading, error: authError, logout } = useAuth(); const nav = useNavigate();
@@ -112,8 +110,6 @@ export default function App() {
         <Route path="/builder/:slug" element={<Shell globalAdminOnly><BuilderEditor /></Shell>} />
         <Route path="/users" element={<Shell globalAdminOnly><Users /></Shell>} />
         <Route path="/catalogue" element={<Shell><Catalogue /></Shell>} />
-        <Route path="/tests" element={<Shell globalAdminOnly><Tests /></Shell>} />
-        <Route path="/settings" element={<Shell globalAdminOnly><Settings /></Shell>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />

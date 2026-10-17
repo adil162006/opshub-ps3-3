@@ -23,7 +23,7 @@ The return module handles material returned from assignments and repaired device
 
 ## Repairs
 
-Repair records track device/board, fault, diagnosis, costs, and lifecycle stage. The stages are `diagnosis` → `repairing` → `testing` → `completed`. Repair parts are associated with the repair record. Return workflows may record a completed/repaired device handoff.
+Repair records track device/board, fault, diagnosis, costs, and lifecycle stage. The stages are `diagnosis` â†’ `repairing` â†’ `testing` â†’ `completed`. Repair parts are associated with the repair record. Return workflows may record a completed/repaired device handoff.
 
 ## Configuration publishing
 
@@ -32,5 +32,5 @@ Site draft configuration is JSON containing module nodes/edges, typed connection
 ## Operational boundaries
 
 - All backend operational requests require an authenticated user with site membership. Specific minimum roles vary by action.
-- The frontend simulator has separate in-memory/browser persistence semantics. Its isolation tests do not prove backend transaction or tenant isolation.
+- The frontend has no local operational data simulator. Backend transaction and tenant isolation tests remain pending.
 - RLS is not enabled. Current site isolation relies on API/service checks and same-site relational constraints.

@@ -8,9 +8,8 @@ From this directory:
 npm install
 npm run dev
 npm run build
-npm run test:isolation
 ```
 
-The client defaults to the backend at `http://localhost:3000`; set `VITE_BACKEND_URL` to override it. UUID-backed sites use the HTTP API for site configuration and operational data. Non-UUID example sites and simulator/isolation flows use browser-local demo state. The simulator is not shared, durable server storage.
+The client defaults to the backend at `http://localhost:3000`; set `VITE_BACKEND_URL` to override it. All site configuration and operational data comes from the backend API. There is no frontend seed database or browser-local data fallback.
 
-See the repository [README](../README.md), [architecture](../docs/architecture.md), [API reference](../docs/api.md), and [feature status](../features.md). The isolation suite tests the frontend simulator only, not the PostgreSQL API.
+`src/lib/registry.js` defines the approved frontend modules, their typed connections, defaults, presets, and configuration validation. Backend operational records and seed data are maintained on the server. See the repository [README](../README.md), [architecture](../docs/architecture.md), [API reference](../docs/api.md), and [feature status](../features.md).

@@ -4,7 +4,6 @@ import { Link, Navigate, NavLink, useParams } from 'react-router-dom';
 import { useAuth } from '../context/Authcontext';
 import { getSite, getSites, SITES_QUERY_KEY } from '../api/site.api';
 import { useSiteStore } from '../store/site.store';
-import { makeApi } from '../lib/api';
 import { makeHttpSiteApi } from '../api/siteData.api';
 import { DEFAULT_THEME, pagesOf } from '../lib/registry';
 import { Access, Dashboard } from '../views/Core';
@@ -66,9 +65,7 @@ export default function SiteRoute({ preview = false }) {
         preview,
         user,
         base,
-        api: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(remoteSite.id)
-          ? makeHttpSiteApi(remoteSite.id, preview, () => queryClient.invalidateQueries({ queryKey: ['site-data', remoteSite.id] }), siteData.config)
-          : makeApi(remoteSite.id, preview),
+        api: makeHttpSiteApi(remoteSite.id, preview, () => queryClient.invalidateQueries({ queryKey: ['site-data', remoteSite.id] }), siteData.config),
       },
     };
   }, [activeSite, preview, queryClient, remoteSite, siteData, slug, theme, user]);

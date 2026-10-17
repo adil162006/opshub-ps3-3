@@ -2,9 +2,9 @@
 
 ## Purpose and source of truth
 
-OpsHub is a multi-site operations application. The React/Vite frontend sends credentialed HTTP requests to the Express backend for authentication, site configuration, and published site module operations. The browser-local simulator remains for offline/non-UUID demo data and isolation demonstrations; it is not backend enforcement.
+OpsHub is a multi-site operations application. The React/Vite frontend sends credentialed HTTP requests to the Express backend for authentication, site configuration, and published site module operations. The frontend has no browser-local operational data simulator. Backend enforcement must still be verified independently.
 
-Use the real route implementations and API clients under `frontend/src/api/` for current contracts. `frontend/src/lib/api.js` remains the offline simulator and compatibility reference, not evidence of server enforcement. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
+Use the real route implementations and API clients under `frontend/src/api/` for current contracts. The frontend uses API clients under `frontend/src/api/` for its site data. The endpoint table in the frontend catalogue and `frontend/docs/schema.sql` are incomplete. Check the relevant UI and server code before changing a contract.
 
 See the root [`AGENTS.md`](../AGENTS.md) for project-wide product constraints and [`features.md`](../features.md) for implementation status and remaining requirements.
 
@@ -37,7 +37,7 @@ Unless the frontend is updated in the same change, preserve these paths and payl
 | Assignments | `GET|POST /api/:siteId/assignments` | Create accepts `{requestId,qty,assignee}`; require an approved request and atomically decrement stock and create the assignment. |
 | Consumption | `GET|POST /api/:siteId/consumption` | Create accepts `{assignmentId,qty,note,date?}` and reduces the assignment's remaining quantity. |
 | Returns | `GET|POST /api/:siteId/returns` | Assignment return: `{source:"assignment",refId,qty,condition,reason}`; repair return: `{source:"repair",refId,resolution,reason}`. Good returns restock stock; damaged returns do not. |
-| Repairs | `GET|POST /api/:siteId/repairs`; `PUT|DELETE /api/:siteId/repairs/:id` | Create/update configured repair fields; support the repair lifecycle `diagnosis → repairing → testing → completed`. |
+| Repairs | `GET|POST /api/:siteId/repairs`; `PUT|DELETE /api/:siteId/repairs/:id` | Create/update configured repair fields; support the repair lifecycle `diagnosis â†’ repairing â†’ testing â†’ completed`. |
 | Members | `GET|POST /api/:siteId/members`; `PATCH|DELETE /api/:siteId/members/:userId` | Site Admin manages memberships with `{name,email,role}` for adds and `{role}` for updates. New accounts use the email prefix before `@` as their initial password; existing users may be added by email without changing their password. Delete removes only that site's membership. Responses expose public user data and site `role`. |
 | Global users | `GET|POST /api/users`; `PATCH|DELETE /api/users/:id` | Global Admin only. Create accepts `{name,email,role,memberships?}` (`User` or `Admin`) and uses the email prefix before `@` as the initial password; patch supports `name`, `email`, `role`, `memberships`, and `password`. Never return password hashes. |
 | Reports | `GET /api/:siteId/export/:resource` | Return `{columns,rows,filename,role}` for client-side spreadsheet generation. |
@@ -47,7 +47,7 @@ The UI also attempts inventory, request, and repair reads on the hub for summary
 
 ## Authorization and tenant isolation
 
-The simulator's role checks are the expected minimum authorization behavior; enforce them in API middleware/service logic, not only in the UI.
+Enforce role checks in API middleware and service logic, not only in the UI.
 
 | Operation | Minimum site role |
 | --- | --- |
@@ -57,16 +57,16 @@ The simulator's role checks are the expected minimum authorization behavior; enf
 | Delete inventory, requests, repairs | Admin |
 | Manage members, builder/draft/preview/publish/rollback, global user administration | Admin |
 
-Global Admin bypasses site membership in the prototype. Other users need a membership with `Member`, `Manager`, or `Admin`. Approvals, assignments, consumption, and returns are immutable in the simulator after creation. The frontend catalogue has at least one permission discrepancy (inventory creation); prefer the checks in `frontend/src/lib/api.js` and preserve the stricter rule above unless product requirements explicitly change.
+Global Admin bypasses site membership in the prototype. Other users need a membership with `Member`, `Manager`, or `Admin`. Approvals, assignments, consumption, and returns are immutable after creation. Check current frontend catalogue and backend permission behavior before changing permissions.
 
 Scope every business read and write to the authenticated user's site membership and requested `siteId`. Validate referenced records against that same site. Return 404 for missing, disabled, or cross-site records rather than disclosing another tenant's data. Enforce isolation in PostgreSQL as well as in application code: use site-scoped foreign keys and row-level security for every business table. Keep workflow changes transactional; in particular, assignment creation, stock decrement, and request state changes must succeed or roll back together and must be safe under concurrent requests.
 
 ## Errors and data contracts
 
-- Keep response shapes compatible with the simulator. Business rows commonly expose `id`, `site_id`, and `createdAt`; workflow rows include generated fields such as `requestNo`, `status`, `step`, `requestedBy`, `remaining`, and audit actor/time fields. Check the concrete handler before relying on a shape.
+- Keep API response shapes compatible with the current frontend API clients. Business rows commonly expose `id`, `site_id`, and `createdAt`; workflow rows include generated fields such as `requestNo`, `status`, `step`, `requestedBy`, `remaining`, and audit actor/time fields. Check the concrete handler before relying on a shape.
 - Use structured JSON errors with `status`, `message`, and optional `details`. Maintain meaningful HTTP statuses: 401 unauthenticated, 403 forbidden, 404 missing/disabled/cross-site, 409 conflict, and 422 invalid input.
 - Validate all user input and configuration server-side. Never trust client-provided user IDs, site roles, calculated values, totals, stock levels, or workflow states.
-- Do not implement the settings page's JSON backup/restore as a server endpoint without an explicit product decision; it currently exports/restores the entire browser-local database. Likewise, spreadsheet parsing/generation is currently client-side; the described backend endpoints exchange JSON rows.
+- Do not add whole-database backup/restore endpoints without an explicit product decision. Workbook import/export should follow the documented API contracts.
 
 ## Backend implementation conventions
 
@@ -78,7 +78,7 @@ Scope every business read and write to the authenticated user's site membership 
 
 ## Known frontend incompatibilities and gaps
 
-- The frontend HTTP client and base-URL setting are implemented for authentication and site configuration. Business-module API calls still need to replace/adapt the local simulator and use credentialed cookie requests.
-- The unused `frontend/src/views/Distribution.jsx` submits assignments with `{itemId,qty,assignee}`, while the simulator expects `{requestId,qty,assignee}`; the live site route also does not currently register that view. Do not treat it as the supported assignment contract without reconciling the frontend.
-- Browser-local backup, demo credentials, client-side auth, and frontend isolation tests do not provide production persistence, security, or database tenant isolation.
+- The frontend HTTP client and base-URL setting are implemented for authentication and site configuration. Business-module API calls use the backend and credentialed cookie requests.
+- The unused `frontend/src/views/Distribution.jsx` submits assignments with `{itemId,qty,assignee}`, while the backend expects `{requestId,qty,assignee}`; the live site route also does not currently register that view. Do not treat it as the supported assignment contract without reconciling the frontend.
+- Backend seed credentials and API checks do not provide production security or database-enforced tenant isolation.
 - `frontend/docs/schema.sql` is an incomplete draft. The Drizzle schema and migrations must be completed and tested against all required resources and isolation constraints.

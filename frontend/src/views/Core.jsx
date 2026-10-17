@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Badge, DataTable, Page, Stat, fmt, useRows, when } from '../ui';
 import { RANK, ROLES, hasModule, pagesOf, resourcesOf } from '../lib/registry';
-import { RES } from '../lib/api';
+import { RES } from '../lib/resources';
 
 export function Dashboard({ ctx }) {
   const inv = useRows(ctx, 'inventory'); const req = useRows(ctx, 'requests'); const asg = useRows(ctx, 'assignments');

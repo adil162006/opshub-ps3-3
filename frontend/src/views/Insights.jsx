@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Badge, DataTable, ExcelBar, Page, Stat, fmt, useRows } from '../ui';
-import { columnsFor } from '../lib/api';
+import { columnsFor } from '../lib/resources';
 import { RANK, hasModule, resourcesOf } from '../lib/registry';
 import { analyticsQueryKey, getAnalytics } from '../api/analytics.api';
 import { isUuid } from '../utils/uuid';

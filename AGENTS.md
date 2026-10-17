@@ -4,10 +4,10 @@ OpsHub is a configuration-driven multi-site operations hub. Its goal is to let o
 
 ## Architecture
 
-- `frontend/` is a React + Vite application. Shared UI, demo seed data, module definitions, and the current simulated API live under `frontend/src/`.
+- `frontend/` is a React + Vite application. Shared UI and module definitions live under `frontend/src/`; runtime site data comes from the backend API.
 - `frontend/src/lib/registry.js` is the source of truth for the approved 13 module types, their typed inputs/outputs, presets, and configuration validation.
 - `frontend/src/pages/` contains the hub, builder, login, and administration screens; `frontend/src/views/` contains site module views.
-- `backend/` is intended for the Express + PostgreSQL + Drizzle service. It is currently scaffolding, not a working API. Do not treat the frontend's browser-local simulated API or isolation tests as backend/database enforcement.
+- `backend/` contains the Express + PostgreSQL + Drizzle service. The frontend has no browser-local simulator or operational demo records.
 - `frontend/docs/schema.sql` is an incomplete schema draft, not a complete production migration.
 
 ## Working conventions
@@ -25,7 +25,6 @@ Run from the repository root:
 ```bash
 npm --prefix frontend run dev
 npm --prefix frontend run build
-npm --prefix frontend run test:isolation
 ```
 
 Backend development and Drizzle scripts are defined in `backend/package.json`, but the backend test script is currently a placeholder and the server is not implemented. Do not report a backend test run as passing until real backend tests exist.

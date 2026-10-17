@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { create } from 'zustand';
 import { evalFormula, RANK } from './lib/registry';
-import { useDB } from './lib/db';
 import { exportReport, importInventory } from './api/reports.api';
 
 export const useUI = create((set) => ({
@@ -89,17 +88,13 @@ export function DataTable({ columns, rows, empty = 'Nothing here yet' }) {
 
 // reactive, permission-checked row hook
 export function useRows(ctx, res) {
-  const rows = useDB((s) => s.rows[res]);
   const siteId = ctx.site?.id;
   const query = useQuery({
     queryKey: ['site-data', siteId, res],
     queryFn: () => ctx.api.list(res),
     enabled: !!ctx.api.remote && !!siteId,
   });
-  return useMemo(() => {
-    if (ctx.api.remote) return query.data || [];
-    try { return ctx.api.list(res); } catch { return []; }
-  }, [ctx.api, query.data, res, rows]); // eslint-disable-line
+  return query.data || [];
 }
 export const itemName = (items, id) => { const i = items.find((x) => x.id === id); return i ? i.name || i.sku : id; };
 export const fieldText = (f, row, items = []) => (f.type === 'item' ? itemName(items, row[f.key]) : fmt(row[f.key]));
@@ -125,16 +120,10 @@ export function RecordForm({ fields, initial = {}, items, onSubmit, submitLabel 
 export function ExcelBar({ ctx, resource }) {
   const canImport = RANK[ctx.role] >= 2 && resource === 'inventory';
   const exportX = async () => attemptAsync(async () => {
-    if (ctx.api.remote) {
-      const { blob, filename } = await exportReport(ctx.site.id, resource);
-      const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
-      anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
-      return true;
-    }
-    const { columns, rows, filename } = ctx.api.export(resource);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([columns.map((c) => c.label), ...rows.map((r) => columns.map((c) => r[c.key] ?? ''))]), resource.slice(0, 31));
-    XLSX.writeFile(wb, filename); return true;
+    const { blob, filename } = await exportReport(ctx.site.id, resource);
+    const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+    return true;
   }, `Exported ${resource}`);
   const template = () => attempt(() => {
     const columns = ctx.config.nodes.find((node) => node.data.type === 'inventory')?.data.config?.fields || [];
@@ -143,17 +132,8 @@ export function ExcelBar({ ctx, resource }) {
   });
   const importX = async (file) => {
     if (!file) return;
-    if (ctx.api.remote) {
-      const result = await attemptAsync(() => importInventory(ctx.site.id, file));
-      if (result && typeof result === 'object') toast.ok(`Import complete: ${result.created} created, ${result.updated} updated`);
-      return;
-    }
-    const wb = XLSX.read(await file.arrayBuffer());
-    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-    const { columns } = ctx.api.export(resource);
-    const map = Object.fromEntries(columns.flatMap((c) => [[c.label, c.key], [c.key, c.key]]));
-    const res = attempt(() => ctx.api.import(resource, json.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [map[k] || k, v])))));
-    if (res) toast.ok(`Import complete: ${res.created} created, ${res.updated} updated`);
+    const result = await attemptAsync(() => importInventory(ctx.site.id, file));
+    if (result && typeof result === 'object') toast.ok(`Import complete: ${result.created} created, ${result.updated} updated`);
   };
   return (
     <div className="flex gap-2 flex-wrap items-center">

@@ -69,7 +69,7 @@ Inventory, category, and movement routes also have `/api/sites/:siteId/...` alia
 - Successful collection reads return JSON arrays unless noted; create operations generally return 201 and the created record.
 - Validation errors use 400 or 422; missing resources use 404; permission failures use 403; conflicts such as duplicate site SKU use 409.
 - Some services return `{ "error": "..." }`; the centralized error handler also emits a JSON status/message shape. Clients should handle both `error` and `message` fields.
-- Site business routes require a UUID site ID. Non-UUID frontend demo slugs belong to the local simulator, not these API endpoints.
+- Site business routes require a UUID site ID. Frontend site data is read from and written to these API endpoints.
 
 ## Browser example
 

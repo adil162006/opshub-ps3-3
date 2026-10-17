@@ -104,7 +104,7 @@ export function AssignmentView({ ctx }) {
 
   const reqs = useRows(ctx, 'requests'); const items = useRows(ctx, 'inventory'); const asg = useRows(ctx, 'assignments');
   const key = itemKey(ctx.config); const fields = fieldsOf(ctx.config, 'request');
-  const [f, setF] = useState({}); const [crash, setCrash] = useState(false);
+  const [f, setF] = useState({});
   const ready = reqs.filter((r) => ['approved', 'open'].includes(r.status)); const canAssign = RANK[ctx.role] >= 2;
 
   const onAssign = async (r, qty, assignee) => {
@@ -118,8 +118,6 @@ export function AssignmentView({ ctx }) {
       } catch {
         // error handled in onError
       }
-    } else {
-      attempt(() => ctx.api.post('assignments', { requestId: r.id, qty, assignee, _simulateCrash: crash }), 'Assigned — stock decremented');
     }
   };
 
@@ -127,7 +125,6 @@ export function AssignmentView({ ctx }) {
 
   return (
     <Page title="Material Assignment" sub="Approved requests → issue stock. Stock decrement + request status + assignment row commit in one transaction.">
-      {ctx.role === 'Admin' && <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={crash} onChange={(e) => setCrash(e.target.checked)} /> Simulate crash after stock decrement (demo: verify rollback)</label>}
       {ready.length === 0 && <div className="card p-6 muted text-center">No approved requests waiting for assignment.</div>}
       <div className="grid md:grid-cols-2 gap-3">{ready.map((r) => {
         const item = items.find((i) => i.id === r[key]); const qty = f[r.id]?.qty ?? r.qty; const short = item && qty > item.qty;

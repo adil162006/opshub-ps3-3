@@ -50,10 +50,9 @@ From repository root:
 
 ```bash
 npm --prefix frontend run build
-npm --prefix frontend run test:isolation
 ```
 
-The build checks frontend compilation. Isolation tests exercise the browser simulator only; they do not validate PostgreSQL, API integration, or database tenant isolation.
+The frontend build checks client compilation. Backend integration and database tenant isolation tests remain pending.
 
 ## Database change procedure
 
@@ -68,7 +67,7 @@ The build checks frontend compilation. Isolation tests exercise the browser simu
 - **CORS or cookie session failures:** ensure `CORS_ORIGINS` exactly matches the page origin and the frontend uses credentialed API requests. For cross-site production, use HTTPS and `AUTH_COOKIE_SAME_SITE=none`.
 - **`/ready` fails:** check database availability and `DATABASE_URL`; `/health` does not check PostgreSQL.
 - **Invitation email fails:** set SMTP host, port, credentials, sender, and provider configuration.
-- **Demo slug is rejected by backend:** API operational routes require UUID site IDs. Non-UUID sample sites are served by the browser simulator.
+- **Site ID is rejected by backend:** API operational routes require UUID site IDs. Create or seed sites through the backend.
 
 ## Current operational limits
 
