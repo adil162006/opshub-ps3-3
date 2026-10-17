@@ -20,7 +20,7 @@ import {
   stockMovements,
   users,
 } from './src/db/schema/index.js';
-import { hashPassword, MIN_PASSWORD_LENGTH } from './src/lib/password.js';
+import { hashPassword } from './src/lib/password.js';
 
 const DEMO_SITE_SLUGS = ['central-stores', 'service-centre', 'distribution'];
 
@@ -145,9 +145,8 @@ try {
   const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (!adminEmail || !adminPassword
-    || adminPassword.length < MIN_PASSWORD_LENGTH
     || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
-    throw new Error(`Set a valid SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least ${MIN_PASSWORD_LENGTH} characters.`);
+    throw new Error('Set a valid SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD.');
   }
   const adminPasswordHash = await hashPassword(adminPassword);
 
