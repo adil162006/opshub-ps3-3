@@ -19,6 +19,11 @@ export async function createSite(input) {
   return data;
 }
 
+export async function deleteSite(siteId) {
+  const { data } = await api.delete(`/api/sites/${siteId}`);
+  return data;
+}
+
 export async function saveSiteDraft(siteId, draft) {
   const { data } = await api.put(`/api/sites/${siteId}/draft`, { draft });
   return data;

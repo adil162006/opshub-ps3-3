@@ -146,6 +146,20 @@ export async function createSite(actorId, input) {
   });
 }
 
+export async function deleteSite(siteId) {
+  if (!UUID.test(siteId)) throw new ApiError(400, 'siteId must be a valid UUID');
+  return db.transaction(async (tx) => {
+    const [site] = await tx.select({ id: sites.id }).from(sites).where(eq(sites.id, siteId)).for('update').limit(1);
+    if (!site) throw new ApiError(404, 'Site not found');
+
+    await tx.update(sites).set({ liveVersionId: null }).where(eq(sites.id, siteId));
+    await tx.delete(deployments).where(eq(deployments.siteId, siteId));
+    await tx.delete(siteVersions).where(eq(siteVersions.siteId, siteId));
+    await tx.delete(sites).where(eq(sites.id, siteId));
+    return { deleted: true };
+  });
+}
+
 export async function saveDraft(siteId, actorId, config) {
   await requireSiteAdmin(siteId, actorId);
   validateDraft(config, { allowIncomplete: true });

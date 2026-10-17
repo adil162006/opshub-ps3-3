@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactFlow, { Background, Controls, Handle, MiniMap, Position, ReactFlowProvider, addEdge, useEdgesState, useNodesState, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { createSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
+import { createSite, deleteSite, getSite, getSites, publishSite, rollbackSite, saveSiteDraft, SITES_QUERY_KEY } from '../api/site.api';
 import { useAuth } from '../context/Authcontext';
 import { DEFAULT_THEME, MODULES, ORDER, PRESETS, ROLES, TYPE_LABEL, accepts, connectionType, defaultConfig, validateConfig, validateFormula } from '../lib/registry';
 import { Badge, toast, when } from '../ui';
@@ -313,6 +313,20 @@ export function BuilderIndex() {
     },
     onError: (createRequestError) => setCreateError(errorMessage(createRequestError)),
   });
+  const [deleteError, setDeleteError] = useState('');
+  const deleteMutation = useMutation({
+    mutationFn: deleteSite,
+    onSuccess: async (_result, siteId) => {
+      const deletedSite = sites.find((site) => site.id === siteId);
+      setDeleteError('');
+      toast.ok(`Site "${deletedSite?.name || 'site'}" deleted.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SITES_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['builder-site'] }),
+      ]);
+    },
+    onError: (deleteRequestError) => setDeleteError(errorMessage(deleteRequestError)),
+  });
   const [f, setF] = useState({ name: '', slug: '', preset: Object.keys(PRESETS)[0] });
   return (
     <div className="themed min-h-[calc(100vh-48px)] p-6" style={{ background: 'var(--background)', color: 'var(--foreground)' }}>
@@ -320,7 +334,8 @@ export function BuilderIndex() {
         <h1 className="text-xl font-semibold">Site builder</h1>
         {isLoading && <p className="muted">Loading sites…</p>}
         {error && <p role="alert" className="text-sm text-red-400">{errorMessage(error)}</p>}
-        {!isLoading && !error && manageableSites.length > 0 && <div className="grid md:grid-cols-3 gap-3">{manageableSites.map((site) => <Link key={site.id} to={`/builder/${site.slug}`} className="card p-4 hover:shadow"><div className="font-semibold">{site.name}</div><div className="text-xs muted">/{site.slug} · live v{site.live ?? '—'} · {(site.moduleTypes || []).length} published modules · {site.role}</div></Link>)}</div>}
+        {!isLoading && !error && manageableSites.length > 0 && <div className="grid md:grid-cols-3 gap-3">{manageableSites.map((site) => <div key={site.id} className="card p-4 hover:shadow flex flex-col gap-3"><Link to={`/builder/${site.slug}`} className="block"><div className="font-semibold">{site.name}</div><div className="text-xs muted">/{site.slug} · live v{site.live ?? '—'} · {(site.moduleTypes || []).length} published modules · {site.role}</div></Link>{isGlobalAdmin && <button type="button" className="btn btn-sm self-start" disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(`Permanently delete "${site.name}" (/${site.slug}) and all of its data? This cannot be undone.`)) { setDeleteError(''); deleteMutation.mutate(site.id); } }}>{deleteMutation.isPending && deleteMutation.variables === site.id ? 'Deleting…' : 'Delete site'}</button>}</div>)}</div>}
+        {deleteError && <p role="alert" className="text-sm text-red-400">{deleteError}</p>}
         {!isLoading && !error && !manageableSites.length && <p className="muted">You do not have Admin access to any sites to configure.</p>}
         {isGlobalAdmin && <form className="card p-4 grid sm:grid-cols-4 gap-3" onSubmit={(event) => {
           event.preventDefault();

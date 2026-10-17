@@ -1,5 +1,5 @@
 import { ApiError } from '../../lib/ApiError.js';
-import { createSite, getSite, listSites, publishDraft, rollbackSite, saveDraft } from './sites.service.js';
+import { createSite, deleteSite, getSite, listSites, publishDraft, rollbackSite, saveDraft } from './sites.service.js';
 
 export async function listSitesHandler(req, res) {
   res.json(await listSites(req.user.id));
@@ -12,6 +12,11 @@ export async function getSiteHandler(req, res) {
 export async function createSiteHandler(req, res) {
   if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw new ApiError(422, 'A JSON request body is required');
   res.status(201).json(await createSite(req.user.id, req.body));
+}
+
+export async function deleteSiteHandler(req, res) {
+  await deleteSite(req.params.siteId);
+  res.status(204).end();
 }
 
 export async function saveDraftHandler(req, res) {
